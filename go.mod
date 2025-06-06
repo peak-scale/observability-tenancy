@@ -2,7 +2,7 @@ module github.com/projectcapsule/cortex-proxy
 
 go 1.23.0
 
-toolchain go1.23.5
+toolchain go1.24.4
 
 require (
 	github.com/KimMachineGun/automemlimit v0.7.1
