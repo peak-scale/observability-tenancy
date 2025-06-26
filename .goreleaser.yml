@@ -1,4 +1,4 @@
-project_name: cortex-proxy
+project_name: observability-tenancy
 env:
   - COSIGN_EXPERIMENTAL=true
   - GO111MODULE=on
@@ -8,7 +8,8 @@ before:
 gomod:
   proxy: false
 builds:
-  - main: ./cmd/loki-proxy
+  - id: loki-proxy
+    main: ./cmd/loki-proxy
     binary: "loki-proxy-{{ .Os }}-{{ .Arch }}"
     env:
       - CGO_ENABLED=0
@@ -20,7 +21,8 @@ builds:
     flags:
       - -trimpath
     mod_timestamp: '{{ .CommitTimestamp }}'
-  - main: ./cmd/cortex-proxy/
+  - id: cortex-proxy
+    main: ./cmd/cortex-proxy/
     binary: "cortex-proxy-{{ .Os }}-{{ .Arch }}"
     env:
       - CGO_ENABLED=0
