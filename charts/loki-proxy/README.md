@@ -1,24 +1,24 @@
-# Capsule ❤️ Cortex
+# Capsule ❤️ Loki
 
-![Logo](https://github.com/projectcapsule/cortex-proxy/blob/main/docs/images/logo.png)
+![Logo](https://github.com/peak-scale/observabaility-tenancy/blob/main/docs/images/logo.png)
 
 ## Installation
 
 1. Install Helm Chart:
 
-        $ helm install cortex-tenant oci://ghcr.io/projectcapsule/charts/cortex-proxy  -n monitioring-system
+        $ helm install loki-proxy oci://ghcr.io/peak-scale/charts/loki-proxy  -n monitioring-system
 
 3. Show the status:
 
-        $ helm status cortex-tenant -n monitioring-system
+        $ helm status loki-proxy -n monitioring-system
 
 4. Upgrade the Chart
 
-        $ helm upgrade cortex-tenant oci://ghcr.io/projectcapsule/charts/cortex-proxy --version 0.4.7
+        $ helm upgrade loki-proxy oci://ghcr.io/peak-scale/charts/loki-proxy --version 0.4.7
 
 5. Uninstall the Chart
 
-        $ helm uninstall cortex-tenant -n monitioring-system
+        $ helm uninstall loki-proxy -n monitioring-system
 
 ## Values
 
