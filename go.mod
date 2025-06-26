@@ -20,7 +20,7 @@ require (
 	github.com/prometheus/client_golang v1.21.1
 	github.com/prometheus/prometheus v0.302.1
 	github.com/stretchr/testify v1.10.0
-	github.com/valyala/fasthttp v1.58.0
+	github.com/valyala/fasthttp v1.62.0
 	go.uber.org/automaxprocs v1.6.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.32.2
@@ -96,7 +96,7 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.17.11 // indirect
+	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
