@@ -7,7 +7,7 @@ toolchain go1.23.5
 require (
 	github.com/KimMachineGun/automemlimit v0.7.1
 	github.com/caarlos0/env/v8 v8.0.0
-	github.com/go-logr/logr v1.4.2
+	github.com/go-logr/logr v1.4.3
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/snappy v1.0.0
 	github.com/google/uuid v1.6.0
