@@ -1,5 +1,6 @@
 # Capsule ❤️ Observability
 
+
 ![Capsule Cortex](docs/images/logo.png)
 
 <p align="center">
@@ -26,4 +27,3 @@ If you notice any issues, please report them in the [GitHub issues](https://gith
 
 This addon is developed by the community. For enterprise support (production ready setup,tailor-made features) reach out to [Capsule Supporters](https://projectcapsule.dev/support/)
 
-## License

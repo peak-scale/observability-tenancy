@@ -26,7 +26,11 @@ release:
     **Full Changelog**: https://github.com/peak-scale/{{ .ProjectName }}/compare/{{ .PreviousTag }}...{{ .Tag }}
 
     > [!TIP]
+<<<<<<< fix/fossa
     > [Read this documentation](https://github.com/peak-scale/{{ .ProjectName }}/blob/{{ .Tag }}/SECURITY.md) to see how you can verify an artifacts we are releasing.
+=======
+    > [Read this documentation](https://github.com/projectcapsule/{{ .ProjectName }}/blob/{{ .Tag }}/SECURITY.md) to see how you can verify an artifacts we are releasing.
+>>>>>>> main
 
     > [!IMPORTANT]
     > **Kubernetes compatibility**
@@ -41,7 +45,13 @@ release:
     - `ghcr.io/peak-scale/{{ .ProjectName }}/cortex-proxy:{{ .Version }}`
     - `ghcr.io/peak-scale/{{ .ProjectName }}/cortex-proxy:latest`
 
+<<<<<<< fix/fossa
     ## Loki Proxy
+=======
+    > [!IMPORTANT]
+    > Note that the Capsule project offers support only for the latest minor version of Kubernetes.
+    > Backwards compatibility with older versions of Kubernetes and OpenShift is [offered by vendors](https://projectcapsule.dev/support/).
+>>>>>>> main
 
     [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/cortex-proxy)](https://artifacthub.io/packages/search?repo=cortex-proxy)
 

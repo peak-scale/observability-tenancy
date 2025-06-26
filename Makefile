@@ -269,7 +269,11 @@ nwa:
 
 
 GOLANGCI_LINT          := $(LOCALBIN)/golangci-lint
+<<<<<<< fix/fossa
 GOLANGCI_LINT_VERSION  := v2.1.6
+=======
+GOLANGCI_LINT_VERSION  := v1.64.6
+>>>>>>> main
 GOLANGCI_LINT_LOOKUP   := golangci/golangci-lint
 golangci-lint: ## Download golangci-lint locally if necessary.
 	@test -s $(GOLANGCI_LINT) && $(GOLANGCI_LINT) -h | grep -q $(GOLANGCI_LINT_VERSION) || \
