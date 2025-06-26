@@ -7,6 +7,9 @@
 <a href="https://github.com/peak-scale/observability-tenancy/releases/latest">
   <img alt="GitHub release (latest SemVer)" src="https://img.shields.io/github/v/release/peak-scale/observability-tenancy?sort=semver">
 </a>
+<a href="https://codecov.io/gh/peak-scale/observability-tenancy" >
+ <img src="https://codecov.io/gh/peak-scale/observability-tenancy/graph/badge.svg?token=UsROzc2Fod"/>
+</a>
 </p>
 
 ## Overview
@@ -26,4 +29,3 @@ If you notice any issues, please report them in the [GitHub issues](https://gith
 ## Support
 
 This addon is developed by the community. For enterprise support (production ready setup,tailor-made features) reach out to [Capsule Supporters](https://projectcapsule.dev/support/)
-
