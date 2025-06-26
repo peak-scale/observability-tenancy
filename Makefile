@@ -6,19 +6,22 @@ GOARCH          ?= $(shell go env GOARCH)
 
 # Defaults
 REGISTRY        ?= ghcr.io
-REPOSITORY      ?= projectcapsule/cortex-proxy
+REPOSITORY      ?= peak-scale/observability-tenancy
 GIT_TAG_COMMIT  ?= $(shell git rev-parse --short $(VERSION))
 GIT_MODIFIED_1  ?= $(shell git diff $(GIT_HEAD_COMMIT) $(GIT_TAG_COMMIT) --quiet && echo "" || echo ".dev")
 GIT_MODIFIED_2  ?= $(shell git diff --quiet && echo "" || echo ".dirty")
 GIT_MODIFIED    ?= $(shell echo "$(GIT_MODIFIED_1)$(GIT_MODIFIED_2)")
 GIT_REPO        ?= $(shell git config --get remote.origin.url)
 BUILD_DATE      ?= $(shell git log -1 --format="%at" | xargs -I{} sh -c 'if [ "$(shell uname)" = "Darwin" ]; then date -r {} +%Y-%m-%dT%H:%M:%S; else date -d @{} +%Y-%m-%dT%H:%M:%S; fi')
-IMG_BASE        ?= $(REPOSITORY)
-IMG             ?= $(IMG_BASE):$(VERSION)
-FULL_IMG        ?= $(REGISTRY)/$(IMG_BASE)
+CORTEX_IMG_BASE ?= $(REPOSITORY)/cortex-proxy
+CORTEX_IMG      ?= $(CORTEX_IMG_BASE):$(VERSION)
+CORTEX_FULL_IMG ?= $(REGISTRY)/$(CORTEX_IMG_BASE)
+LOKI_IMG_BASE   ?= $(REPOSITORY)/loki-proxy
+LOKI_IMG        ?= $(LOKI_IMG_BASE):$(VERSION)
+LOKI_FULL_IMG   ?= $(REGISTRY)/$(LOKI_IMG_BASE)
 
-KIND_K8S_VERSION ?= "v1.30.0"
-KIND_K8S_NAME    ?= "cortex-tenant"
+KIND_K8S_VERSION ?= "v1.33.0"
+KIND_K8S_NAME    ?= "observability-addon"
 
 ## Tool Binaries
 KUBECTL ?= kubectl
@@ -37,11 +40,11 @@ endif
 
 .PHONY: golint
 golint: golangci-lint
-	$(GOLANGCI_LINT) run -c .golangci.yml
+	$(GOLANGCI_LINT) run -c .golangci.yaml
 
 .PHONY: golint
 golint-fix: golangci-lint
-	$(GOLANGCI_LINT) run -c .golangci.yml --fix
+	$(GOLANGCI_LINT) run -c .golangci.yaml --fix
 
 all: manager
 
@@ -84,14 +87,21 @@ LD_FLAGS        := "-X main.Version=$(VERSION) \
 # Docker Image Build
 # ------------------
 
-.PHONY: ko-build-controller
-ko-build-controller: ko
-	@echo Building Controller $(FULL_IMG) - $(KO_TAGS) >&2
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(FULL_IMG) \
-		$(KO) build ./cmd/ --bare --tags=$(KO_TAGS) --push=false --local --platform=$(KO_PLATFORM)
+.PHONY: ko-build-loki
+ko-build-loki: ko
+	@echo Building Loki-Proxy $(LOKI_FULL_IMG) - $(KO_TAGS) >&2
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(LOKI_FULL_IMG) \
+		$(KO) build ./cmd/loki-proxy/ --bare --tags=$(KO_TAGS) --push=false --local --platform=$(KO_PLATFORM)
+
+
+.PHONY: ko-build-cortex
+ko-build-cortex: ko
+	@echo Building Cortex-Proxy $(CORTEX_FULL_IMG) - $(KO_TAGS) >&2
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(CORTEX_FULL_IMG) \
+		$(KO) build ./cmd/cortex-proxy/ --bare --tags=$(KO_TAGS) --push=false --local --platform=$(KO_PLATFORM)
 
 .PHONY: ko-build-all
-ko-build-all: ko-build-controller
+ko-build-all: ko-build-cortex ko-build-loki
 
 # Docker Image Publish
 # ------------------
@@ -103,14 +113,20 @@ REGISTRY_USERNAME   ?= dummy
 ko-login: ko
 	@$(KO) login $(REGISTRY) --username $(REGISTRY_USERNAME) --password $(REGISTRY_PASSWORD)
 
-.PHONY: ko-publish-controller
-ko-publish-controller: ko-login
-	@echo Publishing Controller $(FULL_IMG) - $(KO_TAGS) >&2
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(FULL_IMG) \
-		$(KO) build ./cmd/ --bare --tags=$(KO_TAGS) --push=true
+.PHONY: ko-publish-cortex
+ko-publish-cortex: ko-login
+	@echo Publishing Cortex-Proxy $(CORTEX_IMG) - $(KO_TAGS) >&2
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(CORTEX_IMG) \
+		$(KO) build ./cmd/cortex-proxy/ --bare --tags=$(KO_TAGS) --push=true
+
+.PHONY: ko-publish-loki
+ko-publish-loki: ko-login
+	@echo Publishing Loki-Proxy $(LOKI_IMG) - $(KO_TAGS) >&2
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(LOKI_IMG) \
+		$(KO) build ./cmd/loki-proxy/ --bare --tags=$(KO_TAGS) --push=true
 
 .PHONY: ko-publish-all
-ko-publish-all: ko-publish-controller
+ko-publish-all: ko-publish-cortex ko-publish-loki
 
 ####################
 # -- Helm
@@ -119,11 +135,6 @@ ko-publish-all: ko-publish-controller
 # Helm
 SRC_ROOT = $(shell git rev-parse --show-toplevel)
 
-helm-controller-version:
-	$(eval VERSION := $(shell grep 'appVersion:' charts/cortex-proxy/Chart.yaml | awk '{print $$2}'))
-	$(eval KO_TAGS := $(shell grep 'appVersion:' charts/cortex-proxy/Chart.yaml | awk '{print $$2}'))
-
-
 helm-docs: helm-doc
 	$(HELM_DOCS) --chart-search-root ./charts
 
@@ -131,7 +142,8 @@ helm-lint: ct
 	@$(CT) lint --config .github/configs/ct.yaml --validate-yaml=false --all --debug
 
 helm-schema: helm-plugin-schema
-	cd charts/cortex-proxy && $(HELM) schema -output values.schema.json
+	cd charts/cortex-proxy && $(HELM) schema
+	cd charts/loki-proxy && $(HELM) schema
 
 helm-test: kind ct
 	@$(KIND) create cluster --wait=60s --name $(KIND_K8S_NAME) --image=kindest/node:$(KIND_K8S_VERSION)
@@ -139,8 +151,11 @@ helm-test: kind ct
 	@$(MAKE) helm-test-exec
 	@$(KIND) delete cluster --name $(KIND_K8S_NAME)
 
-helm-test-exec: ct helm-controller-version ko-build-all
-	@$(KIND) load docker-image --name cortex-tenant $(FULL_IMG):$(VERSION)
+helm-test-exec: VERSION :=v0.0.0
+helm-test-exec: KO_TAGS :=v0.0.0
+helm-test-exec: ct ko-build-all
+	@$(KIND) load docker-image --name $(KIND_K8S_NAME) $(LOKI_FULL_IMG):$(VERSION)
+	@$(KIND) load docker-image --name $(KIND_K8S_NAME) $(CORTEX_FULL_IMG):$(VERSION)
 	@$(CT) install --config $(SRC_ROOT)/.github/configs/ct.yaml --all --debug
 
 docker:
@@ -245,12 +260,20 @@ ko:
 	@test -s $(KO) && $(KO) -h | grep -q $(KO_VERSION) || \
 	$(call go-install-tool,$(KO),github.com/$(KO_LOOKUP)@$(KO_VERSION))
 
+NWA           := $(LOCALBIN)/nwa
+NWA_VERSION   := v0.7.3
+NWA_LOOKUP    := B1NARY-GR0UP/nwa
+nwa:
+	@test -s $(NWA) && $(NWA) -h | grep -q $(NWA_VERSION) || \
+	$(call go-install-tool,$(NWA),github.com/$(NWA_LOOKUP)@$(NWA_VERSION))
+
+
 GOLANGCI_LINT          := $(LOCALBIN)/golangci-lint
-GOLANGCI_LINT_VERSION  := v1.64.6
+GOLANGCI_LINT_VERSION  := v2.1.6
 GOLANGCI_LINT_LOOKUP   := golangci/golangci-lint
 golangci-lint: ## Download golangci-lint locally if necessary.
 	@test -s $(GOLANGCI_LINT) && $(GOLANGCI_LINT) -h | grep -q $(GOLANGCI_LINT_VERSION) || \
-	$(call go-install-tool,$(GOLANGCI_LINT),github.com/$(GOLANGCI_LINT_LOOKUP)/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION))
+	$(call go-install-tool,$(GOLANGCI_LINT),github.com/$(GOLANGCI_LINT_LOOKUP)/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION))
 
 # go-install-tool will 'go install' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))

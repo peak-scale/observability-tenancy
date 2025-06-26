@@ -87,7 +87,7 @@ image:
   # -- Set the image registry
   registry: ghcr.io
   # -- Set the image repository
-  repository: projectcapsule/cortex-proxy
+  repository: peak-scale/observability-tenancy/cortex-proxy
   # -- Set the image pull policy.
   pullPolicy: IfNotPresent
   # -- Overrides the image tag whose default is the chart appVersion.

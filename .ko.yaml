@@ -2,5 +2,7 @@ defaultPlatforms:
 - linux/amd64
 - linux/arm64
 builds:
-- id: cortex-tenant
-  main: ./cmd/
+- id: cortex-proxy
+  main: ./cmd/cortex-proxy/
+- id: loki-proxy
+  main: ./cmd/loki-proxy/

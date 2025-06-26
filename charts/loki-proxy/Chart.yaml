@@ -1,0 +1,23 @@
+apiVersion: v2
+name: loki-proxy
+description: Loki Tenant Proxy
+type: application
+# Note: The version is overwritten by the release workflow.
+version: 0.0.0
+# Note: The version is overwritten by the release workflow.
+appVersion: v0.0.0
+home: https://github.com/projectcapsule/observability-addon
+icon: https://github.com/projectcapsule/capsule/raw/main/assets/logo/capsule_small.png
+keywords:
+- kubernetes
+- operator
+- multi-tenancy
+- multi-tenant
+- multitenancy
+- multitenant
+- grafana
+- lgtm
+- loki
+- prometheus
+sources:
+  - https://github.com/projectcapsule/observability-addon

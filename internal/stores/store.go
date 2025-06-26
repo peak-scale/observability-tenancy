@@ -3,57 +3,53 @@ package stores
 import (
 	"sync"
 
-	capsulev1beta2 "github.com/projectcapsule/capsule/api/v1beta2"
+	corev1 "k8s.io/api/core/v1"
+
+	"github.com/peak-scale/observability-tenancy/internal/config"
+	"github.com/peak-scale/observability-tenancy/internal/meta"
 )
 
-type TenantStore struct {
+type NamespaceStore struct {
 	sync.RWMutex
-	tenants map[string]string
+	namespaces map[string]string
 }
 
-func NewTenantStore() *TenantStore {
-	return &TenantStore{
-		tenants: make(map[string]string),
+func NewNamespaceStore() *NamespaceStore {
+	return &NamespaceStore{
+		namespaces: make(map[string]string),
 	}
 }
 
-func (s *TenantStore) GetTenant(namespace string) string {
-	s.RLock()
-	defer s.RUnlock()
-
-	return s.tenants[namespace]
+func (s *NamespaceStore) GetOrg(namespace string) string {
+	return s.namespaces[namespace]
 }
 
-func (s *TenantStore) Update(tenant *capsulev1beta2.Tenant) {
+func (s *NamespaceStore) Update(namespace *corev1.Namespace, cfg *config.TenantConfig) {
 	s.Lock()
 	defer s.Unlock()
 
-	currentNamespaces := make(map[string]struct{}, len(tenant.Status.Namespaces))
-	for _, ns := range tenant.Status.Namespaces {
-		currentNamespaces[ns] = struct{}{}
+	if org := meta.NamespaceOrgName(namespace); org != "" {
+		s.namespaces[namespace.Name] = org
+
+		return
 	}
 
-	for ns, t := range s.tenants {
-		if t == tenant.Name {
-			// If ns is not in the updated namespace list, delete it
-			if _, exists := currentNamespaces[ns]; !exists {
-				delete(s.tenants, ns)
-			}
-		}
+	if cfg != nil && cfg.SetNamespaceAsDefault {
+		s.namespaces[namespace.Name] = namespace.Name
+
+		return
 	}
 
-	for _, ns := range tenant.Status.Namespaces {
-		s.tenants[ns] = tenant.Name
-	}
+	s.Delete(namespace)
 }
 
-func (s *TenantStore) Delete(tenant *capsulev1beta2.Tenant) {
+func (s *NamespaceStore) Delete(namespace *corev1.Namespace) {
+	delete(s.namespaces, namespace.Name)
+}
+
+func (s *NamespaceStore) Clear() {
 	s.Lock()
 	defer s.Unlock()
 
-	for ns, t := range s.tenants {
-		if t == tenant.Name {
-			delete(s.tenants, ns)
-		}
-	}
+	s.namespaces = make(map[string]string)
 }

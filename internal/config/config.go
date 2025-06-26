@@ -11,26 +11,23 @@ import (
 )
 
 type Config struct {
-	Backend *CortexBackend `yaml:"backend"`
-
-	EnableIPv6 bool `yaml:"ipv6"`
-
-	Selector LabelSelector `yaml:"selector,omitempty"`
-
+	Bind            string        `env:"BIND"                   yaml:"bind"`
+	Backend         *Backend      `yaml:"backend"`
+	EnableIPv6      bool          `yaml:"ipv6"`
+	HTTPErrorCode   int           `yaml:"httpErrorCode"`
+	Selector        LabelSelector `yaml:"selector,omitempty"`
 	Timeout         time.Duration `yaml:"timeout"`
 	TimeoutShutdown time.Duration `yaml:"timeoutShutdown"`
 	Concurrency     int           `yaml:"concurrency"`
 	Metadata        bool          `yaml:"metadata"`
 	MaxConnDuration time.Duration `yaml:"maxConnectionDuration"`
 	MaxConnsPerHost int           `yaml:"maxConnectionsPerHost"`
-
-	Tenant *TenantConfig `yaml:"tenant"`
-
-	PipeIn  *fhu.InmemoryListener
-	PipeOut *fhu.InmemoryListener
+	Tenant          *TenantConfig `yaml:"tenant"`
+	PipeIn          *fhu.InmemoryListener
+	PipeOut         *fhu.InmemoryListener
 }
 
-type CortexBackend struct {
+type Backend struct {
 	URL  string `yaml:"url"`
 	Auth struct {
 		Username string `yaml:"username"`
@@ -39,13 +36,14 @@ type CortexBackend struct {
 }
 
 type TenantConfig struct {
-	Labels             []string `yaml:"labels"`
-	Prefix             string   `yaml:"prefix"`
-	PrefixPreferSource bool     `yaml:"prefixPreferSource"`
-	LabelRemove        bool     `yaml:"labelRemove"`
-	Header             string   `yaml:"header"`
-	Default            string   `yaml:"default"`
-	AcceptAll          bool     `yaml:"acceptAll"`
+	Labels                []string `yaml:"labels"`
+	SetNamespaceAsDefault bool     `yaml:"setNamespaceAsDefault"`
+	Prefix                string   `yaml:"prefix"`
+	PrefixPreferSource    bool     `yaml:"prefixPreferSource"`
+	LabelRemove           bool     `yaml:"labelRemove"`
+	Header                string   `yaml:"header"`
+	Default               string   `yaml:"default"`
+	AcceptAll             bool     `yaml:"acceptAll"`
 }
 
 func Load(file string) (*Config, error) {
@@ -66,6 +64,18 @@ func Load(file string) (*Config, error) {
 		return nil, errors.Wrap(err, "Unable to parse env vars")
 	}
 
+	if cfg.Bind == "" {
+		cfg.Bind = "0.0.0.0:8080"
+	}
+
+	if cfg.Backend == nil {
+		return nil, errors.New("backend configuration is required")
+	}
+
+	if cfg.Backend.URL == "" {
+		return nil, errors.New("backend URL is required")
+	}
+
 	if cfg.Concurrency == 0 {
 		cfg.Concurrency = 512
 	}
@@ -81,6 +91,11 @@ func Load(file string) (*Config, error) {
 
 	if cfg.MaxConnsPerHost == 0 {
 		cfg.MaxConnsPerHost = 64
+	}
+
+	// With this Error Code, Alloy attempts to resend the request
+	if cfg.HTTPErrorCode == 0 {
+		cfg.HTTPErrorCode = 429
 	}
 
 	return cfg, nil

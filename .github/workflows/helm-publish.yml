@@ -5,7 +5,7 @@ on:
     tags:
       - "v*"
 jobs:
-  publish-helm:
+  publish-helm-cortex:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -37,8 +37,8 @@ jobs:
           update-dependencies: 'false' # Defaults to false
           sign-image: 'true'
           signature-repository: ghcr.io/${{ github.repository_owner }}/charts/cortex-proxy
-  helm-provenance:
-    needs: publish-helm
+  helm-provenance-cortex:
+    needs: publish-helm-cortex
     permissions:
       id-token: write   # To sign the provenance.
       packages: write   # To upload assets to release.
@@ -46,7 +46,53 @@ jobs:
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/charts/cortex-proxy
-      digest: "${{ needs.publish-helm.outputs.chart-digest }}"
+      digest: "${{ needs.publish-helm-cortex.outputs.chart-digest }}"
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-helm-loki:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+      packages: write
+    outputs:
+      chart-digest: ${{ steps.helm_publish.outputs.digest }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: sigstore/cosign-installer@c56c2d3e59e4281cc41dea2217323ba5694b171e # v3.8.0
+      - name: "Extract Version"
+        id: extract_version
+        run: |
+          GIT_TAG=${GITHUB_REF##*/}
+          VERSION=${GIT_TAG##v}
+          echo "version=$(echo $VERSION)" >> $GITHUB_OUTPUT
+      - name: Helm | Publish
+        id: helm_publish
+        uses: peak-scale/github-actions/helm-oci-chart@a441cca016861c546ab7e065277e40ce41a3eb84 # v0.2.0
+        with:
+          registry: ghcr.io
+          repository: ${{ github.repository_owner }}/charts
+          name: "loki-proxy"
+          path: "./charts/loki-proxy/"
+          app-version: ${{ steps.extract_version.outputs.version }}
+          version: ${{ steps.extract_version.outputs.version }}
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
+          update-dependencies: 'false' # Defaults to false
+          sign-image: 'true'
+          signature-repository: ghcr.io/${{ github.repository_owner }}/charts/loki-proxy
+  helm-provenance-loki:
+    needs: publish-helm-loki
+    permissions:
+      id-token: write   # To sign the provenance.
+      packages: write   # To upload assets to release.
+      actions: read     # To read the workflow path.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.0.0
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/charts/loki-proxy
+      digest: "${{ needs.publish-helm-loki.outputs.chart-digest }}"
       registry-username: ${{ github.actor }}
     secrets:
       registry-password: ${{ secrets.GITHUB_TOKEN }}

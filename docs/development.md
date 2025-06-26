@@ -17,7 +17,7 @@ KIND_K8S_VERSION="v1.31.0" make e2e-build
 When you want to quickly develop, you can scale down the operator within the cluster:
 
 ```shell
-kubectl scale deploy capsule-argo-addon --replicas=0 -n capsule-argo-addon
+kubectl scale deploy observability-addon --replicas=0 -n observability-addon
 ```
 
 And then execute the binary:
@@ -29,8 +29,8 @@ go run cmd/main.go -zap-log-level=10
 You might need to first export the Kubeconfig for the cluster (If you are using multiple clusters at the same time):
 
 ```shell
-bin/kind get kubeconfig --name capsule-arg-addon  > /tmp/capsule-argo-addon
-export KUBECONFIG="/tmp/capsule-argo-addon"
+bin/kind get kubeconfig --name observability-addon  > /tmp/observability-addon
+export KUBECONFIG="/tmp/observability-addon"
 ```
 
 ## Testing

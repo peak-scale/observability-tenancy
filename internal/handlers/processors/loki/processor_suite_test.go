@@ -1,4 +1,4 @@
-package processor_test
+package loki_test
 
 import (
 	"testing"
@@ -9,5 +9,5 @@ import (
 
 func TestProcessor(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Processor Suite")
+	RunSpecs(t, "Loki Processor Suite")
 }

@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/projectcapsule/cortex-proxy/internal/config"
+	"github.com/peak-scale/observability-tenancy/internal/config"
 )
 
 var _ = Describe("Config Loading", func() {

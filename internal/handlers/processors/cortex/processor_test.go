@@ -1,4 +1,4 @@
-package processor
+package cortex
 
 import (
 	"context"
@@ -10,30 +10,32 @@ import (
 	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	capsulev1beta2 "github.com/projectcapsule/capsule/api/v1beta2"
 	"github.com/prometheus/prometheus/prompb"
 	fh "github.com/valyala/fasthttp"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/projectcapsule/cortex-proxy/internal/config"
-	"github.com/projectcapsule/cortex-proxy/internal/metrics"
-	"github.com/projectcapsule/cortex-proxy/internal/stores"
+	"github.com/peak-scale/observability-tenancy/internal/config"
+	"github.com/peak-scale/observability-tenancy/internal/handlers/handler"
+	"github.com/peak-scale/observability-tenancy/internal/meta"
+	"github.com/peak-scale/observability-tenancy/internal/metrics"
+	"github.com/peak-scale/observability-tenancy/internal/stores"
 )
 
 var _ = Describe("Processor Forwarding", func() {
 	var (
-		proc           *Processor
+		proc           *handler.Handler
 		fakeTarget     *httptest.Server
 		receivedMu     sync.Mutex
 		receivedHeader http.Header
 		ctx            context.Context
 		cancel         context.CancelFunc
 		cfg            config.Config
-		store          *stores.TenantStore
-		metric         *metrics.Recorder
+		store          *stores.NamespaceStore
+		metric         *metrics.ProxyRecorder
 	)
 
-	metric = metrics.MustMakeRecorder() // or a mock recorder
+	metric = metrics.MustMakeRecorder("cortex") // or a mock recorder
 
 	BeforeEach(func() {
 		// Create a fake target server that records request headers.
@@ -48,7 +50,8 @@ var _ = Describe("Processor Forwarding", func() {
 		// Initialize configuration for the processor.
 		// Ensure cfg.Target points to fakeTarget.URL.
 		cfg = config.Config{
-			Backend: &config.CortexBackend{
+			Bind: "0.0.0.0:31001",
+			Backend: &config.Backend{
 				URL: fakeTarget.URL,
 			},
 			Timeout: 5 * time.Second,
@@ -66,34 +69,48 @@ var _ = Describe("Processor Forwarding", func() {
 		}
 
 		// Initialize any required dependencies (store, metrics, logger).
-		store = stores.NewTenantStore() // or a suitable mock
-		store.Update(&capsulev1beta2.Tenant{
+		store = stores.NewNamespaceStore() // or a suitable mock
+		store.Update(&corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "solar",
-				Namespace: "solar",
+				Name: "solar",
+				Annotations: map[string]string{
+					meta.AnnotationOrganisationName: "solar-org",
+				},
 			},
-			Status: capsulev1beta2.TenantStatus{
-				Namespaces: []string{"solar-one", "solar-two", "solar-three"},
-			},
-		})
-		store.Update(&capsulev1beta2.Tenant{
+		}, cfg.Tenant)
+
+		// Add another namespace with a different organisation.
+		store.Update(&corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "oil",
-				Namespace: "oil",
+				Name: "green",
+				Annotations: map[string]string{
+					meta.AnnotationOrganisationName: "green-org",
+				},
 			},
-			Status: capsulev1beta2.TenantStatus{
-				Namespaces: []string{"oil-one", "oil-two", "oil-three"},
+		}, cfg.Tenant)
+
+		// Use namespace as organisation
+		store.Update(&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "wind",
 			},
+		}, &config.TenantConfig{
+			Labels: []string{
+				"namespace",
+				"target_namespace",
+			},
+			Header:                "X-Scope-OrgID",
+			Default:               "default",
+			Prefix:                "test-",
+			PrefixPreferSource:    false,
+			SetNamespaceAsDefault: true,
 		})
 
 		// Create the processor.
 		// Start the processor webserver in a separate goroutine.
 		ctx, cancel = context.WithCancel(context.Background())
-
 		log, _ := logr.FromContext(ctx)
-
-		// Create the processor.
-		proc = NewProcessor(log, cfg, store, metric)
+		proc = NewCortexProcessor(log, cfg, store, metric)
 
 		go func() {
 			if err := proc.Start(ctx); err != nil {
@@ -127,16 +144,15 @@ var _ = Describe("Processor Forwarding", func() {
 					},
 				},
 			}
-
 			// Marshal and compress using the processor helper.
-			buf, err := proc.marshal(wr)
+			buf, err := marshal(wr)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Build a POST request to the processor's /push endpoint.
 			// Since processor uses fasthttp, use its client for the test.
 			var req fh.Request
 			var resp fh.Response
-			req.SetRequestURI("http://127.0.0.1:8080/push")
+			req.SetRequestURI("http://127.0.0.1:31001/push")
 			req.Header.SetMethod(fh.MethodPost)
 			req.Header.Set("Content-Encoding", "snappy")
 			req.Header.Set("Content-Type", "application/x-protobuf")
@@ -171,7 +187,7 @@ var _ = Describe("Processor Forwarding", func() {
 						Labels: []prompb.Label{
 							{Name: "job", Value: "test"},
 							{Name: "instance", Value: "localhost:9090"},
-							{Name: "namespace", Value: "solar-three"},
+							{Name: "namespace", Value: "solar"},
 						},
 						Samples: []prompb.Sample{
 							{Value: 123, Timestamp: time.Now().UnixMilli()},
@@ -181,14 +197,14 @@ var _ = Describe("Processor Forwarding", func() {
 			}
 
 			// Marshal and compress using the processor helper.
-			buf, err := proc.marshal(wr)
+			buf, err := marshal(wr)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Build a POST request to the processor's /push endpoint.
 			// Since processor uses fasthttp, use its client for the test.
 			var req fh.Request
 			var resp fh.Response
-			req.SetRequestURI("http://127.0.0.1:8080/push")
+			req.SetRequestURI("http://127.0.0.1:31001/push")
 			req.Header.SetMethod(fh.MethodPost)
 			req.Header.Set("Content-Encoding", "snappy")
 			req.Header.Set("Content-Type", "application/x-protobuf")
@@ -209,11 +225,11 @@ var _ = Describe("Processor Forwarding", func() {
 			// Verify that the forwarded request contains the expected header.
 			receivedMu.Lock()
 			defer receivedMu.Unlock()
-			Expect(receivedHeader).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Scope-OrgID"), []string{cfg.Tenant.Prefix + "solar"}))
+			Expect(receivedHeader).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Scope-OrgID"), []string{cfg.Tenant.Prefix + "solar-org"}))
 			Expect(receivedHeader).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Prometheus-Remote-Write-Version"), []string{"0.1.0"}))
 		})
 
-		By("proxy correct tenant (oil)", func() {
+		By("proxy correct tenant (wind)", func() {
 
 			// Prepare a minimal prompb.WriteRequest.
 			wr := &prompb.WriteRequest{
@@ -222,7 +238,7 @@ var _ = Describe("Processor Forwarding", func() {
 						Labels: []prompb.Label{
 							{Name: "job", Value: "test"},
 							{Name: "instance", Value: "localhost:9090"},
-							{Name: "target_namespace", Value: "oil-one"},
+							{Name: "namespace", Value: "wind"},
 						},
 						Samples: []prompb.Sample{
 							{Value: 123, Timestamp: time.Now().UnixMilli()},
@@ -232,14 +248,14 @@ var _ = Describe("Processor Forwarding", func() {
 			}
 
 			// Marshal and compress using the processor helper.
-			buf, err := proc.marshal(wr)
+			buf, err := marshal(wr)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Build a POST request to the processor's /push endpoint.
 			// Since processor uses fasthttp, use its client for the test.
 			var req fh.Request
 			var resp fh.Response
-			req.SetRequestURI("http://127.0.0.1:8080/push")
+			req.SetRequestURI("http://127.0.0.1:31001/push")
 			req.Header.SetMethod(fh.MethodPost)
 			req.Header.Set("Content-Encoding", "snappy")
 			req.Header.Set("Content-Type", "application/x-protobuf")
@@ -260,7 +276,58 @@ var _ = Describe("Processor Forwarding", func() {
 			// Verify that the forwarded request contains the expected header.
 			receivedMu.Lock()
 			defer receivedMu.Unlock()
-			Expect(receivedHeader).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Scope-OrgID"), []string{cfg.Tenant.Prefix + "oil"}))
+			Expect(receivedHeader).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Scope-OrgID"), []string{cfg.Tenant.Prefix + "wind"}))
+			Expect(receivedHeader).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Prometheus-Remote-Write-Version"), []string{"0.1.0"}))
+		})
+
+		By("proxy correct tenant (green)", func() {
+
+			// Prepare a minimal prompb.WriteRequest.
+			wr := &prompb.WriteRequest{
+				Timeseries: []prompb.TimeSeries{
+					{
+						Labels: []prompb.Label{
+							{Name: "job", Value: "test"},
+							{Name: "instance", Value: "localhost:9090"},
+							{Name: "target_namespace", Value: "green"},
+						},
+						Samples: []prompb.Sample{
+							{Value: 123, Timestamp: time.Now().UnixMilli()},
+						},
+					},
+				},
+			}
+
+			// Marshal and compress using the processor helper.
+			buf, err := marshal(wr)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Build a POST request to the processor's /push endpoint.
+			// Since processor uses fasthttp, use its client for the test.
+			var req fh.Request
+			var resp fh.Response
+			req.SetRequestURI("http://127.0.0.1:31001/push")
+			req.Header.SetMethod(fh.MethodPost)
+			req.Header.Set("Content-Encoding", "snappy")
+			req.Header.Set("Content-Type", "application/x-protobuf")
+			req.SetBody(buf)
+
+			// Send the request using fasthttp.
+			err = fh.DoTimeout(&req, &resp, cfg.Timeout)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode()).To(Equal(fh.StatusOK))
+
+			// Wait until the fake target receives the forwarded request.
+			Eventually(func() http.Header {
+				receivedMu.Lock()
+				defer receivedMu.Unlock()
+				return receivedHeader
+			}, 5*time.Second, 200*time.Millisecond).ShouldNot(BeEmpty())
+
+			// Verify that the forwarded request contains the expected header.
+			receivedMu.Lock()
+			defer receivedMu.Unlock()
+			Expect(receivedHeader).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Scope-OrgID"), []string{cfg.Tenant.Prefix + "green-org"}))
 			Expect(receivedHeader).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Prometheus-Remote-Write-Version"), []string{"0.1.0"}))
 		})
 
@@ -273,7 +340,7 @@ var _ = Describe("Processor Forwarding", func() {
 						Labels: []prompb.Label{
 							{Name: "job", Value: "test"},
 							{Name: "instance", Value: "localhost:9090"},
-							{Name: "target_namespace", Value: "oil-prod"},
+							{Name: "target_namespace", Value: "oil"},
 						},
 						Samples: []prompb.Sample{
 							{Value: 123, Timestamp: time.Now().UnixMilli()},
@@ -283,14 +350,14 @@ var _ = Describe("Processor Forwarding", func() {
 			}
 
 			// Marshal and compress using the processor helper.
-			buf, err := proc.marshal(wr)
+			buf, err := marshal(wr)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Build a POST request to the processor's /push endpoint.
 			// Since processor uses fasthttp, use its client for the test.
 			var req fh.Request
 			var resp fh.Response
-			req.SetRequestURI("http://127.0.0.1:8080/push")
+			req.SetRequestURI("http://127.0.0.1:31001/push")
 			req.Header.SetMethod(fh.MethodPost)
 			req.Header.Set("Content-Encoding", "snappy")
 			req.Header.Set("Content-Type", "application/x-protobuf")
