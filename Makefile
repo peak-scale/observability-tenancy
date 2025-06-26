@@ -115,14 +115,14 @@ ko-login: ko
 
 .PHONY: ko-publish-cortex
 ko-publish-cortex: ko-login
-	@echo Publishing Cortex-Proxy $(CORTEX_IMG) - $(KO_TAGS) >&2
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(CORTEX_IMG) \
+	@echo Publishing Cortex-Proxy $(CORTEX_FULL_IMG) - $(KO_TAGS) >&2
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(CORTEX_FULL_IMG) \
 		$(KO) build ./cmd/cortex-proxy/ --bare --tags=$(KO_TAGS) --push=true
 
 .PHONY: ko-publish-loki
 ko-publish-loki: ko-login
-	@echo Publishing Loki-Proxy $(LOKI_IMG) - $(KO_TAGS) >&2
-	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(LOKI_IMG) \
+	@echo Publishing Loki-Proxy $(LOKI_FULL_IMG) - $(KO_TAGS) >&2
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(LOKI_FULL_IMG) \
 		$(KO) build ./cmd/loki-proxy/ --bare --tags=$(KO_TAGS) --push=true
 
 .PHONY: ko-publish-all

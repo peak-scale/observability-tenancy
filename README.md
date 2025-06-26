@@ -10,6 +10,7 @@
 <a href="https://codecov.io/gh/peak-scale/observability-tenancy" >
  <img src="https://codecov.io/gh/peak-scale/observability-tenancy/graph/badge.svg?token=UsROzc2Fod"/>
 </a>
+<a href="https://app.fossa.com/projects/git%2Bgithub.com%2Fpeak-scale%2Fobservability-tenancy?ref=badge_shield&issueType=security" alt="FOSSA Status"><img src="https://app.fossa.com/api/projects/git%2Bgithub.com%2Fpeak-scale%2Fobservability-tenancy.svg?type=shield&issueType=security"/></a>
 </p>
 
 ## Overview
