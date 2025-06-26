@@ -5,12 +5,6 @@ import (
 	"os"
 
 	_ "github.com/KimMachineGun/automemlimit"
-	capsulev1beta2 "github.com/projectcapsule/capsule/api/v1beta2"
-	"github.com/projectcapsule/cortex-proxy/internal/config"
-	"github.com/projectcapsule/cortex-proxy/internal/controllers"
-	"github.com/projectcapsule/cortex-proxy/internal/metrics"
-	"github.com/projectcapsule/cortex-proxy/internal/processor"
-	"github.com/projectcapsule/cortex-proxy/internal/stores"
 	_ "go.uber.org/automaxprocs"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -21,6 +15,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+
+	"github.com/peak-scale/observability-tenancy/internal/config"
+	"github.com/peak-scale/observability-tenancy/internal/controllers/namespace"
+	"github.com/peak-scale/observability-tenancy/internal/handlers/processors/loki"
+	"github.com/peak-scale/observability-tenancy/internal/metrics"
+	"github.com/peak-scale/observability-tenancy/internal/stores"
 )
 
 var Version string
@@ -33,7 +33,6 @@ var (
 //nolint:wsl
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(capsulev1beta2.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -96,19 +95,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	store := stores.NewTenantStore()
-	metricsRecorder := metrics.MustMakeRecorder()
+	store := stores.NewNamespaceStore()
+	metricsRecorder := metrics.MustMakeRecorder("loki")
 
-	tenants := &controllers.TenantController{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Selector: cfg.Selector.Selector(),
-		// Log:     ctrl.Log.WithName("Store").WithName("Config"),
+	namespaces := &namespace.StoreController{
+		Client:  mgr.GetClient(),
+		Scheme:  mgr.GetScheme(),
+		Config:  cfg,
 		Metrics: metricsRecorder,
 		Store:   store,
 	}
 
-	if err = tenants.Init(ctx, directClient); err != nil {
+	if err = namespaces.Init(ctx, directClient); err != nil {
 		setupLog.Error(err, "unable to initialize settings")
 		os.Exit(1)
 	}
@@ -123,7 +121,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	proc := processor.NewProcessor(ctrl.Log.WithName("processor"), *cfg, store, metricsRecorder)
+	proc := loki.NewLokiProcessor(ctrl.Log.WithName("processor"), *cfg, store, metricsRecorder)
 	if err := mgr.Add(proc); err != nil {
 		setupLog.Error(err, "unable to add processor to manager")
 		os.Exit(1)

@@ -1,11 +1,12 @@
 package stores_test
 
 import (
-	"sync"
 	"testing"
 
-	capsulev1beta2 "github.com/projectcapsule/capsule/api/v1beta2"
-	"github.com/projectcapsule/cortex-proxy/internal/stores"
+	"github.com/peak-scale/observability-tenancy/internal/config"
+	"github.com/peak-scale/observability-tenancy/internal/meta"
+	"github.com/peak-scale/observability-tenancy/internal/stores"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/onsi/gomega"
@@ -15,66 +16,58 @@ import (
 func TestTenantStore_Basic(t *testing.T) {
 	RegisterTestingT(t)
 
-	store := stores.NewTenantStore()
+	store := stores.NewNamespaceStore()
 
-	tenant := &capsulev1beta2.Tenant{
+	ns1 := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "tenant1",
+			Name: "tenant-1",
 		},
-		Status: capsulev1beta2.TenantStatus{
-			Namespaces: []string{"ns1", "ns2"},
+	}
+
+	ns2 := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "tenant-2",
+			Annotations: map[string]string{
+				meta.AnnotationOrganisationName: "tenant1",
+			},
 		},
 	}
 
 	// Update the store with tenant1 for ns1 and ns2.
-	store.Update(tenant)
-	Expect(store.GetTenant("ns1")).To(Equal("tenant1"))
-	Expect(store.GetTenant("ns2")).To(Equal("tenant1"))
-
-	// Now update tenant: remove ns1 and add ns3.
-	tenant.Status.Namespaces = []string{"ns2", "ns3"}
-	store.Update(tenant)
-	Expect(store.GetTenant("ns1")).To(Equal(""))
-	Expect(store.GetTenant("ns2")).To(Equal("tenant1"))
-	Expect(store.GetTenant("ns3")).To(Equal("tenant1"))
+	store.Update(ns1, nil)
+	store.Update(ns2, nil)
+	Expect(store.GetOrg(ns1.Name)).To(Equal(""))
+	Expect(store.GetOrg(ns2.Name)).To(Equal("tenant1"))
 
 	// Delete tenant; ns2 and ns3 should be removed.
-	store.Delete(tenant)
-	Expect(store.GetTenant("ns2")).To(Equal(""))
-	Expect(store.GetTenant("ns3")).To(Equal(""))
+	store.Delete(ns2)
+	Expect(store.GetOrg(ns2.Name)).To(Equal(""))
 }
 
-// TestTenantStore_Concurrent verifies that concurrent reads work safely.
-func TestTenantStore_Concurrent(t *testing.T) {
+func TestTenantStore_Config(t *testing.T) {
 	RegisterTestingT(t)
 
-	store := stores.NewTenantStore()
-	tenant := &capsulev1beta2.Tenant{
+	store := stores.NewNamespaceStore()
+
+	ns1 := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "tenant1",
-		},
-		Status: capsulev1beta2.TenantStatus{
-			Namespaces: []string{"ns1", "ns2", "ns3"},
+			Name: "tenant-1",
 		},
 	}
-	store.Update(tenant)
 
-	var wg sync.WaitGroup
-	numGoroutines := 50
-	iterations := 1000
-
-	for i := 0; i < numGoroutines; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for j := 0; j < iterations; j++ {
-				// Concurrently read from the store.
-				_ = store.GetTenant("ns1")
-				_ = store.GetTenant("ns2")
-				_ = store.GetTenant("ns3")
-			}
-		}()
+	ns2 := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "tenant-2",
+		},
 	}
 
-	wg.Wait()
+	cfg := &config.TenantConfig{
+		SetNamespaceAsDefault: true,
+	}
+
+	// Update the store with tenant1 for ns1 and ns2.
+	store.Update(ns1, cfg)
+	store.Update(ns2, cfg)
+	Expect(store.GetOrg(ns1.Name)).To(Equal(ns1.Name))
+	Expect(store.GetOrg(ns2.Name)).To(Equal(ns2.Name))
 }

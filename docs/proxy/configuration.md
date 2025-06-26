@@ -1,4 +1,4 @@
-# Configuration
+# Proxy Configuration
 
 The service can be configured by a config file and/or environment variables. Config file may be specified by passing `-config` CLI argument.
 
@@ -56,7 +56,7 @@ tenant:
     - namespace
     - target_namespace
 
-  # Whether to remove the tenant label from the request
+  # Whether to remove the tenant label from the request (Cortex Only currently)
   labelRemove: true
 
   # To which header to add the tenant ID
@@ -78,6 +78,10 @@ tenant:
   # Make sure to use only allowed characters:
   # https://grafana.com/docs/mimir/latest/configure/about-tenant-ids/
   prefix: foobar-
+
+  # When no tenant ID is defined via namespace annotations, use the namespace name as tenant ID.
+  # This has priority over the `default` tenant ID.
+  setNamespaceAsDefault: false
 
   # If true will use the tenant ID of the inbound request as the prefix of the new tenant id.
   # Will be automatically suffixed with a `-` character.

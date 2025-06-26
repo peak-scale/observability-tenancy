@@ -5,8 +5,8 @@ type: application
 # Note: The version is overwritten by the release workflow.
 version: 0.0.0
 # Note: The version is overwritten by the release workflow.
-appVersion: 0.0.0
-home: https://github.com/projectcapsule/cortex-proxy
+appVersion: v0.0.0
+home: https://github.com/projectcapsule/observability-addon
 icon: https://github.com/projectcapsule/capsule/raw/main/assets/logo/capsule_small.png
 keywords:
 - kubernetes
@@ -18,4 +18,4 @@ keywords:
 - cortex
 - prometheus
 sources:
-  - https://github.com/projectcapsule/cortex-proxy
+  - https://github.com/projectcapsule/observability-addon

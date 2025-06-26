@@ -1,13 +1,13 @@
 package metrics
 
 import (
-	capsulev1beta2 "github.com/projectcapsule/capsule/api/v1beta2"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	corev1 "k8s.io/api/core/v1"
 	crtlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
-type Recorder struct {
+type ProxyRecorder struct {
 	MetricTimeseriesBatchesReceived        prometheus.Counter
 	MetricTimeseriesBatchesReceivedBytes   prometheus.Histogram
 	MetricTimeseriesReceived               *prometheus.CounterVec
@@ -16,25 +16,27 @@ type Recorder struct {
 	MetricTimeseriesRequests               *prometheus.CounterVec
 }
 
-func MustMakeRecorder() *Recorder {
-	metricsRecorder := NewRecorder()
+func MustMakeRecorder(proxyName string) *ProxyRecorder {
+	metricsRecorder := NewRecorder(proxyName)
 	crtlmetrics.Registry.MustRegister(metricsRecorder.Collectors()...)
 
 	return metricsRecorder
 }
 
-func NewRecorder() *Recorder {
-	return &Recorder{
+func NewRecorder(proxyName string) *ProxyRecorder {
+	namespace := proxyName + "_proxy"
+
+	return &ProxyRecorder{
 		MetricTimeseriesBatchesReceived: prometheus.NewCounter(
 			prometheus.CounterOpts{
-				Namespace: "cortex_tenant",
+				Namespace: namespace,
 				Name:      "timeseries_batches_received_total",
 				Help:      "The total number of batches received.",
 			},
 		),
 		MetricTimeseriesBatchesReceivedBytes: prometheus.NewHistogram(
 			prometheus.HistogramOpts{
-				Namespace: "cortex_tenant",
+				Namespace: namespace,
 				Name:      "timeseries_batches_received_bytes",
 				Help:      "Size in bytes of timeseries batches received.",
 				Buckets:   []float64{0.5, 1, 10, 25, 100, 250, 500, 1000, 5000, 10000, 30000, 300000, 600000, 1800000, 3600000},
@@ -42,7 +44,7 @@ func NewRecorder() *Recorder {
 		),
 		MetricTimeseriesReceived: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
-				Namespace: "cortex_tenant",
+				Namespace: namespace,
 				Name:      "timeseries_received_total",
 				Help:      "The total number of timeseries received.",
 			},
@@ -50,7 +52,7 @@ func NewRecorder() *Recorder {
 		),
 		MetricTimeseriesRequestDurationSeconds: prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
-				Namespace: "cortex_tenant",
+				Namespace: namespace,
 				Name:      "timeseries_request_duration_seconds",
 				Help:      "HTTP write request duration for tenant-specific timeseries in seconds, filtered by response code.",
 				Buckets:   []float64{0.5, 1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000, 60000, 1800000, 3600000},
@@ -59,7 +61,7 @@ func NewRecorder() *Recorder {
 		),
 		MetricTimeseriesRequestErrors: promauto.NewCounterVec(
 			prometheus.CounterOpts{
-				Namespace: "cortex_tenant",
+				Namespace: namespace,
 				Name:      "timeseries_request_errors_total",
 				Help:      "The total number of tenant-specific timeseries writes that yielded errors.",
 			},
@@ -67,7 +69,7 @@ func NewRecorder() *Recorder {
 		),
 		MetricTimeseriesRequests: promauto.NewCounterVec(
 			prometheus.CounterOpts{
-				Namespace: "cortex_tenant",
+				Namespace: namespace,
 				Name:      "timeseries_requests_total",
 				Help:      "The total number of tenant-specific timeseries writes.",
 			},
@@ -76,7 +78,7 @@ func NewRecorder() *Recorder {
 	}
 }
 
-func (r *Recorder) Collectors() []prometheus.Collector {
+func (r *ProxyRecorder) Collectors() []prometheus.Collector {
 	return []prometheus.Collector{
 		r.MetricTimeseriesBatchesReceived,
 		r.MetricTimeseriesBatchesReceivedBytes,
@@ -88,9 +90,9 @@ func (r *Recorder) Collectors() []prometheus.Collector {
 }
 
 // DeleteCondition deletes the condition metrics for the ref.
-func (r *Recorder) DeleteMetricsForTenant(tenant *capsulev1beta2.Tenant) {
-	r.MetricTimeseriesRequests.DeleteLabelValues(tenant.Name)
-	r.MetricTimeseriesRequestDurationSeconds.DeleteLabelValues(tenant.Name)
-	r.MetricTimeseriesRequestErrors.DeleteLabelValues(tenant.Name)
-	r.MetricTimeseriesRequests.DeleteLabelValues(tenant.Name)
+func (r *ProxyRecorder) DeleteMetricsForNamespace(ns *corev1.Namespace) {
+	r.MetricTimeseriesRequests.DeleteLabelValues(ns.Name)
+	r.MetricTimeseriesRequestDurationSeconds.DeleteLabelValues(ns.Name)
+	r.MetricTimeseriesRequestErrors.DeleteLabelValues(ns.Name)
+	r.MetricTimeseriesRequests.DeleteLabelValues(ns.Name)
 }
