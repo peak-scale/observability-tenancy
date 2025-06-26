@@ -8,8 +8,8 @@ before:
 gomod:
   proxy: false
 builds:
-  - main: ./cmd/
-    binary: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
+  - main: ./cmd/loki-proxy
+    binary: "loki-proxy-{{ .Os }}-{{ .Arch }}"
     env:
       - CGO_ENABLED=0
     goarch:
@@ -20,6 +20,19 @@ builds:
     flags:
       - -trimpath
     mod_timestamp: '{{ .CommitTimestamp }}'
+  - main: ./cmd/cortex-proxy/
+    binary: "cortex-proxy-{{ .Os }}-{{ .Arch }}"
+    env:
+      - CGO_ENABLED=0
+    goarch:
+      - amd64
+      - arm64
+    goos:
+      - linux
+    flags:
+      - -trimpath
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
 release:
   prerelease: auto
   footer: |
