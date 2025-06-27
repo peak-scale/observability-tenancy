@@ -18,7 +18,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/projectcapsule/capsule v0.7.4
 	github.com/prometheus/client_golang v1.22.0
-	github.com/prometheus/prometheus v0.302.1
+	github.com/prometheus/prometheus v0.304.2
 	github.com/stretchr/testify v1.10.0
 	github.com/valyala/fasthttp v1.62.0
 	go.uber.org/automaxprocs v1.6.0
