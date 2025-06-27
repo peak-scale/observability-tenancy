@@ -14,7 +14,7 @@ require (
 	github.com/grafana/loki/v3 v3.4.2
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/onsi/ginkgo/v2 v2.23.4
-	github.com/onsi/gomega v1.36.3
+	github.com/onsi/gomega v1.37.0
 	github.com/pkg/errors v0.9.1
 	github.com/projectcapsule/capsule v0.7.4
 	github.com/prometheus/client_golang v1.21.1
