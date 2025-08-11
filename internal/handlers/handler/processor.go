@@ -204,7 +204,12 @@ func (p *Handler) handle(ctx *fh.RequestCtx) {
 		}
 
 		if r.Code < 200 || r.Code >= 300 {
-			p.Log.Info("src=%s req_id=%s HTTP code %d (%s)", ctx.RemoteAddr(), reqID, r.Code, string(r.Body))
+			p.Log.Info("handling request",
+				"src", ctx.RemoteAddr(),
+				"req_id", reqID,
+				"code", r.Code,
+				"body", string(r.Body),
+			)
 		}
 
 		if r.Code > code {
