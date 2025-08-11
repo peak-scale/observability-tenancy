@@ -134,7 +134,7 @@ func createTenantRequests(h *handler.Handler, req *logproto.PushRequest) (r map[
 			return true
 		}
 
-		buf, err := proto.Marshal(writeReq)
+		buf, err := marshal(writeReq)
 		if err != nil {
 			h.Log.Error(err, "failed to marshal request")
 
