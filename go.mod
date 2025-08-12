@@ -2,7 +2,7 @@ module github.com/peak-scale/observability-tenancy
 
 go 1.23.0
 
-toolchain go1.23.5
+toolchain go1.25.0
 
 require (
 	github.com/KimMachineGun/automemlimit v0.7.3
