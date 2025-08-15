@@ -104,10 +104,16 @@ func main() {
 		Config:  cfg,
 		Metrics: metricsRecorder,
 		Store:   store,
+		Log:     ctrl.Log.WithName("namespace-controller"),
 	}
 
 	if err = namespaces.Init(ctx, directClient); err != nil {
 		setupLog.Error(err, "unable to initialize settings")
+		os.Exit(1)
+	}
+
+	if err = namespaces.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to set up namespace controller")
 		os.Exit(1)
 	}
 
