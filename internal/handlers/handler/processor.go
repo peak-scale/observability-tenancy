@@ -279,12 +279,13 @@ func (p *Handler) send(
 		p.headerFunc(clientIP, reqID, tenant, req)
 	}
 
-	// Relevant Headers
 	req.Header.Set("Content-Encoding", "snappy")
 	req.Header.Set("Content-Type", "application/x-protobuf")
-	req.Header.Set(p.Config.Tenant.Header, tenant)
 
-	// Backend URL
+	if p.Config.Tenant.Header != "" {
+		req.Header.Set(p.Config.Tenant.Header, tenant)
+	}
+
 	req.SetRequestURI(p.Config.Backend.URL)
 
 	// Authentication Headers

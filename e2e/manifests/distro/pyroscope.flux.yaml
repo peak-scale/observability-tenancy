@@ -1,0 +1,57 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: pyroscope
+  namespace: flux-system
+spec:
+  interval: 24h0m0s
+  url: https://grafana.github.io/helm-charts
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: pyroscope
+  namespace: flux-system
+spec:
+  serviceAccountName: kustomize-controller
+  interval: 15m
+  timeout: 10m
+  targetNamespace: monitoring-system
+  releaseName: "pyroscope"
+  chart:
+    spec:
+      chart: pyroscope
+      version: "1.9.1"
+      sourceRef:
+        kind: HelmRepository
+        name: pyroscope
+      interval: 24h
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      remediateLastFailure: true
+      retries: -1
+  driftDetection:
+    mode: enabled
+  values:
+    global:
+      dnsService: "kube-dns"
+      dnsNamespace: "kube-system"
+      clusterLabelOverride: "kind"
+    minio:
+      enabled: false
+    pyroscope:
+      structuredConfig:
+        multitenancy_enabled: true
+        storage:
+          backend: s3
+          s3:
+            bucket_name: "grafana-pyroscope-data"
+            region: us-east-1
+            endpoint: minio.monitoring-system.svc.cluster.local:9000
+            access_key_id: "observability" # This is a secret injected via an environment variable
+            secret_access_key: "observability" # This is a secret injected via an environment variable
+            insecure: true

@@ -21,6 +21,9 @@ func TestTenantStore_Basic(t *testing.T) {
 	ns1 := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "tenant-1",
+			Annotations: map[string]string{
+				meta.AnnotationLabelName + "test": "value-2",
+			},
 		},
 	}
 
@@ -28,7 +31,9 @@ func TestTenantStore_Basic(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "tenant-2",
 			Annotations: map[string]string{
-				meta.AnnotationOrganisationName: "tenant1",
+				meta.AnnotationOrganisationName:   "tenant-1",
+				meta.AnnotationLabelName + "test": "value-1",
+				meta.AnnotationLabelName + "org":  "org-1",
 			},
 		},
 	}
@@ -36,12 +41,18 @@ func TestTenantStore_Basic(t *testing.T) {
 	// Update the store with tenant1 for ns1 and ns2.
 	store.Update(ns1, nil)
 	store.Update(ns2, nil)
-	Expect(store.GetOrg(ns1.Name)).To(Equal(""))
-	Expect(store.GetOrg(ns2.Name)).To(Equal("tenant1"))
+	Expect(store.GetOrg(ns1.Name)).To(BeNil())
+	Expect(store.GetOrg(ns2.Name)).To(Equal(&stores.NamespaceMapping{
+		Organisation: "tenant-1",
+		Labels: map[string]string{
+			"test": "value-1",
+			"org":  "org-1",
+		},
+	}))
 
 	// Delete tenant; ns2 and ns3 should be removed.
 	store.Delete(ns2)
-	Expect(store.GetOrg(ns2.Name)).To(Equal(""))
+	Expect(store.GetOrg(ns2.Name)).To(BeNil())
 }
 
 func TestTenantStore_Config(t *testing.T) {
@@ -52,12 +63,20 @@ func TestTenantStore_Config(t *testing.T) {
 	ns1 := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "tenant-1",
+			Annotations: map[string]string{
+				meta.AnnotationLabelName + "test": "value-1",
+				meta.AnnotationLabelName + "org":  "org-1",
+			},
 		},
 	}
 
 	ns2 := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "tenant-2",
+			Annotations: map[string]string{
+				meta.AnnotationLabelName + "test": "value-2",
+				meta.AnnotationLabelName + "org":  "org-2",
+			},
 		},
 	}
 
@@ -68,6 +87,18 @@ func TestTenantStore_Config(t *testing.T) {
 	// Update the store with tenant1 for ns1 and ns2.
 	store.Update(ns1, cfg)
 	store.Update(ns2, cfg)
-	Expect(store.GetOrg(ns1.Name)).To(Equal(ns1.Name))
-	Expect(store.GetOrg(ns2.Name)).To(Equal(ns2.Name))
+	Expect(store.GetOrg(ns1.Name)).To(Equal(&stores.NamespaceMapping{
+		Organisation: ns1.Name,
+		Labels: map[string]string{
+			"test": "value-1",
+			"org":  "org-1",
+		},
+	}))
+	Expect(store.GetOrg(ns2.Name)).To(Equal(&stores.NamespaceMapping{
+		Organisation: ns2.Name,
+		Labels: map[string]string{
+			"test": "value-2",
+			"org":  "org-2",
+		},
+	}))
 }

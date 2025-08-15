@@ -56,10 +56,11 @@ tenant:
     - namespace
     - target_namespace
 
-  # Whether to remove the tenant label from the request (Cortex Only currently)
+  # Whether to remove the tenant label from the request
   labelRemove: true
 
   # To which header to add the tenant ID
+  # If this is not set, no header with the tenant ID will be added
   header: X-Scope-OrgID
 
   # Which tenant ID to use if the label is missing in any of the timeseries
@@ -82,6 +83,10 @@ tenant:
   # When no tenant ID is defined via namespace annotations, use the namespace name as tenant ID.
   # This has priority over the `default` tenant ID.
   setNamespaceAsDefault: false
+
+  # Set this value to add the evaluated tenant as label on the data set.
+  # If empty, no label is added
+  tenantLabel: ""
 
   # If true will use the tenant ID of the inbound request as the prefix of the new tenant id.
   # Will be automatically suffixed with a `-` character.

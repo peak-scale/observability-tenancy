@@ -29,7 +29,7 @@ func NewCortexProcessor(
 	return handler.NewHandler(log, c, store, metrics, "cortex-tenant", process, fillRequestHeaders)
 }
 
-// Process Loki Stream for each request.
+// Process Cortex Request for each request.
 func process(processor *handler.Handler, req *fh.Request) (map[string][]byte, error) {
 	wrReqIn, err := unmarshal(req.Body())
 	if err != nil {
@@ -163,16 +163,16 @@ func removeOrdered(slice []prompb.Label, s int) []prompb.Label {
 	return append(slice[:s], slice[s+1:]...)
 }
 
-func processTimeseries(h *handler.Handler, ts *prompb.TimeSeries) (tenant string, err error) {
+func processTimeseries(processor *handler.Handler, ts *prompb.TimeSeries) (tenant string, err error) {
 	var (
 		namespace string
 		idx       int
 	)
 
 	for i, l := range ts.Labels {
-		for _, configuredLabel := range h.Config.Tenant.Labels {
+		for _, configuredLabel := range processor.Config.Tenant.Labels {
 			if l.Name == configuredLabel {
-				h.Log.Info("found", "label", configuredLabel, "value", l.Value)
+				processor.Log.Info("found", "label", configuredLabel, "value", l.Value)
 
 				namespace = l.Value
 				idx = i
@@ -182,24 +182,43 @@ func processTimeseries(h *handler.Handler, ts *prompb.TimeSeries) (tenant string
 		}
 	}
 
-	tenant = h.Store.GetOrg(namespace)
+	mapping := processor.Store.GetOrg(namespace)
 
-	if tenant == "" {
-		if h.Config.Tenant.Default == "" {
-			return "", fmt.Errorf("label(s): {'%s'} not found", strings.Join(h.Config.Tenant.Labels, "','"))
+	if mapping == nil {
+		if processor.Config.Tenant.Default == "" {
+			return "", fmt.Errorf("no tenant assigned: {'%s'} not found and no default defined", strings.Join(processor.Config.Tenant.Labels, "','"))
 		}
 
-		return h.Config.Tenant.Default, nil
+		tenant = processor.Config.Tenant.Default
+	} else {
+		if len(mapping.Labels) > 0 {
+			for l, k := range mapping.Labels {
+				ts.Labels = append(ts.Labels, prompb.Label{
+					Name:  l,
+					Value: k,
+				})
+			}
+		}
+
+		namespace = mapping.Organisation
 	}
 
-	if h.Config.Tenant.LabelRemove {
+	if processor.Config.Tenant.TenantLabel != "" {
+		ts.Labels = append(ts.Labels, prompb.Label{
+			Name:  processor.Config.Tenant.TenantLabel,
+			Value: mapping.Organisation,
+		})
+	}
+
+	// Handling Label Removing
+	if processor.Config.Tenant.LabelRemove {
 		// Order is important. See:
 		// https://github.com/thanos-io/thanos/issues/6452
 		// https://github.com/prometheus/prometheus/issues/11505
 		ts.Labels = removeOrdered(ts.Labels, idx)
 	}
 
-	return
+	return tenant, err
 }
 
 func fillRequestHeaders(

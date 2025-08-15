@@ -179,25 +179,11 @@ e2e-exec: ginkgo
 e2e-destroy: kind
 	$(KIND) delete cluster --name $(KIND_K8S_NAME)
 
-e2e-install: e2e-install-distro e2e-install-addon
-
-.PHONY: e2e-install
-e2e-install-addon: e2e-load-image
-	helm upgrade \
-	    --dependency-update \
-		--debug \
-		--install \
-		--namespace monitoring-system \
-		--create-namespace \
-		--set 'image.pullPolicy=Never' \
-		--set "image.tag=$(VERSION)" \
-		--set args.logLevel=10 \
-		cortex-proxy \
-		./charts/cortex-proxy
+e2e-install: e2e-install-distro
 
 e2e-install-distro:
-	@$(KUBECTL) kustomize e2e/objects/flux/ | kubectl apply -f -
-	@$(KUBECTL) kustomize e2e/objects/distro/ | kubectl apply -f -
+	@$(KUBECTL) kustomize e2e/manifests/flux/ | kubectl apply -f -
+	@$(KUBECTL) kustomize e2e/manifests/distro/ | kubectl apply -f -
 	@$(MAKE) wait-for-helmreleases
 
 .PHONY: e2e-load-image

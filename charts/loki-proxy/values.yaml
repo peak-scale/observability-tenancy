@@ -62,7 +62,7 @@ config:
     # -- Whether to remove the tenant label from the request
     labelRemove: false
     # -- To which header to add the tenant ID
-    header: X-Scope-OrgID
+    header: "X-Scope-OrgID"
     # -- Which tenant ID to use if the label is missing in any of the timeseries
     # If this is not set or empty then the write request with missing tenant label
     # will be rejected with HTTP code 400

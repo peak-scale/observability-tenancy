@@ -38,6 +38,11 @@ var _ = Describe("Processor Forwarding", func() {
 	metric = metrics.MustMakeRecorder("loki_test") // or a mock recorder
 
 	BeforeEach(func() {
+		ctx, cancel = context.WithCancel(context.Background())
+		log, _ := logr.FromContext(ctx)
+
+		log.Info("Starting Server")
+
 		// Create a fake target server that records request headers.
 		fakeTarget = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			receivedMu.Lock()
@@ -106,14 +111,14 @@ var _ = Describe("Processor Forwarding", func() {
 
 		// Create the processor.
 		// Start the processor webserver in a separate goroutine.
-		ctx, cancel = context.WithCancel(context.Background())
-		log, _ := logr.FromContext(ctx)
 		proc = NewLokiProcessor(log, cfg, store, metric)
 
+		log.Info("Starting Server")
 		go func() {
-			if err := proc.Start(ctx); err != nil {
+			if err := proc.Start(ctx); err != nil && err != http.ErrServerClosed {
 				log.Error(err, "processor failed")
 			}
+			log.Info("Starting Start")
 		}()
 
 		// Allow some time for the processor to start.

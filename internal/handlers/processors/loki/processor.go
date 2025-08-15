@@ -183,15 +183,48 @@ func processStreamRequest(processor *handler.Handler, stream *logproto.Stream) (
 		}
 	}
 
-	tenant = processor.Store.GetOrg(namespace)
-
-	if tenant == "" {
+	mapping := processor.Store.GetOrg(namespace)
+	if mapping == nil {
 		if processor.Config.Tenant.Default == "" {
-			return "", fmt.Errorf("label(s): {'%s'} not found", strings.Join(processor.Config.Tenant.Labels, "','"))
+			return "", fmt.Errorf("no tenant assigned: {'%s'} not found and no default defined", strings.Join(processor.Config.Tenant.Labels, "','"))
 		}
 
-		return processor.Config.Tenant.Default, nil
+		tenant = processor.Config.Tenant.Default
+	} else {
+		// Add Additional Labels
+		if mapping.Labels != nil {
+			for l, k := range mapping.Labels {
+				streamLabels = append(streamLabels, labels.Label{
+					Name:  l,
+					Value: k,
+				})
+			}
+		}
+
+		tenant = mapping.Organisation
 	}
 
+	// Add Tenant as Label
+	if processor.Config.Tenant.TenantLabel != "" {
+		streamLabels = append(streamLabels, labels.Label{
+			Name:  processor.Config.Tenant.TenantLabel,
+			Value: tenant,
+		})
+	}
+
+	// Handling Label Removing
+	if idx != 0 && processor.Config.Tenant.LabelRemove {
+		// Order is important. See:
+		// https://github.com/thanos-io/thanos/issues/6452
+		// https://github.com/prometheus/prometheus/issues/11505
+		streamLabels = removeOrdered(streamLabels, idx)
+	}
+
+	stream.Labels = streamLabels.String()
+
 	return
+}
+
+func removeOrdered(slice []labels.Label, s int) []labels.Label {
+	return append(slice[:s], slice[s+1:]...)
 }

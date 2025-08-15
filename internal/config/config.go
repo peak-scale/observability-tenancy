@@ -42,8 +42,11 @@ type TenantConfig struct {
 	PrefixPreferSource    bool     `yaml:"prefixPreferSource"`
 	LabelRemove           bool     `yaml:"labelRemove"`
 	Header                string   `yaml:"header"`
-	Default               string   `yaml:"default"`
-	AcceptAll             bool     `yaml:"acceptAll"`
+	SetHeader             bool     `yaml:"setHeader"`
+	TenantLabel           string   `yaml:"tenantLabel"`
+
+	Default   string `yaml:"default"`
+	AcceptAll bool   `yaml:"acceptAll"`
 }
 
 func Load(file string) (*Config, error) {
@@ -78,10 +81,6 @@ func Load(file string) (*Config, error) {
 
 	if cfg.Concurrency == 0 {
 		cfg.Concurrency = 512
-	}
-
-	if cfg.Tenant.Header == "" {
-		cfg.Tenant.Header = "X-Scope-OrgID"
 	}
 
 	// Default to the Label if list is empty

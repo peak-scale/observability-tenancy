@@ -2,12 +2,15 @@ package cortex
 
 import (
 	"context"
+	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/go-logr/stdr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/prometheus/prompb"
@@ -22,27 +25,58 @@ import (
 	"github.com/peak-scale/observability-tenancy/internal/stores"
 )
 
+var baseLogger = stdr.New(log.New(GinkgoWriter, "[TEST] ", log.LstdFlags))
+
 var _ = Describe("Processor Forwarding", func() {
 	var (
-		proc           *handler.Handler
-		fakeTarget     *httptest.Server
-		receivedMu     sync.Mutex
-		receivedHeader http.Header
-		ctx            context.Context
-		cancel         context.CancelFunc
-		cfg            config.Config
-		store          *stores.NamespaceStore
-		metric         *metrics.ProxyRecorder
+		proc       *handler.Handler
+		fakeTarget *httptest.Server
+		receivedMu sync.Mutex
+		ctx        context.Context
+		cancel     context.CancelFunc
+		cfg        config.Config
+		store      *stores.NamespaceStore
+		metric     *metrics.ProxyRecorder
 	)
 
-	metric = metrics.MustMakeRecorder("cortex") // or a mock recorder
+	type receivedRequest struct {
+		Header http.Header
+		Body   []byte
+	}
+
+	var receivedReqs []receivedRequest
+
+	//metric = metrics.MustMakeRecorder("cortex") // or a mock recorder
+	//
+	//clearRequests := func() {
+	//	receivedMu.Lock()
+	//	receivedReqs = nil
+	//	receivedMu.Unlock()
+	//}
 
 	BeforeEach(func() {
+		ctx, cancel = context.WithCancel(context.Background())
+		ctx = logr.NewContext(ctx, baseLogger)
+		log := logr.FromContextOrDiscard(ctx)
+		ctx, cancel = context.WithCancel(context.Background())
+
 		// Create a fake target server that records request headers.
 		fakeTarget = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			receivedMu.Lock()
-			receivedHeader = r.Header.Clone()
-			receivedMu.Unlock()
+			defer receivedMu.Unlock()
+
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, "failed to read request body", http.StatusInternalServerError)
+				return
+			}
+			defer r.Body.Close()
+
+			receivedReqs = append(receivedReqs, receivedRequest{
+				Header: r.Header.Clone(),
+				Body:   append([]byte(nil), body...),
+			})
+
 			w.Header().Set("Connection", "close")
 			w.WriteHeader(http.StatusOK)
 		}))
@@ -65,6 +99,7 @@ var _ = Describe("Processor Forwarding", func() {
 				Default:            "default",
 				Prefix:             "test-",
 				PrefixPreferSource: false,
+				TenantLabel:        "tenant",
 			},
 		}
 
@@ -108,14 +143,14 @@ var _ = Describe("Processor Forwarding", func() {
 
 		// Create the processor.
 		// Start the processor webserver in a separate goroutine.
-		ctx, cancel = context.WithCancel(context.Background())
-		log, _ := logr.FromContext(ctx)
 		proc = NewCortexProcessor(log, cfg, store, metric)
 
+		log.Info("Starting Server")
 		go func() {
-			if err := proc.Start(ctx); err != nil {
+			if err := proc.Start(ctx); err != nil && err != http.ErrServerClosed {
 				log.Error(err, "processor failed")
 			}
+			log.Info("Starting Start")
 		}()
 
 		// Allow some time for the processor to start.
@@ -164,18 +199,26 @@ var _ = Describe("Processor Forwarding", func() {
 			Expect(resp.StatusCode()).To(Equal(fh.StatusOK))
 
 			// Wait until the fake target receives the forwarded request.
-			Eventually(func() http.Header {
+			var received receivedRequest
+
+			Eventually(func() bool {
 				receivedMu.Lock()
 				defer receivedMu.Unlock()
-				return receivedHeader
-			}, 5*time.Second, 200*time.Millisecond).ShouldNot(BeEmpty())
+				if len(receivedReqs) == 0 {
+					return false
+				}
+				received = receivedReqs[0]
+				return true
+			}, 5*time.Second, 200*time.Millisecond).Should(BeTrue())
 
 			// Verify that the forwarded request contains the expected header.
 			receivedMu.Lock()
 			defer receivedMu.Unlock()
-			Expect(receivedHeader).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Scope-OrgID"), []string{"test-default"}))
-			Expect(receivedHeader).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Prometheus-Remote-Write-Version"), []string{"0.1.0"}))
-			Expect(receivedHeader).To(HaveKeyWithValue(http.CanonicalHeaderKey("Content-Encoding"), []string{"snappy"}))
+			Expect(received.Header).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Scope-OrgID"), []string{"test-default"}))
+			Expect(received.Header).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Prometheus-Remote-Write-Version"), []string{"0.1.0"}))
+			Expect(received.Header).To(HaveKeyWithValue(http.CanonicalHeaderKey("Content-Encoding"), []string{"snappy"}))
+
+			//clearRequests()
 		})
 
 		By("proxy correct tenant (solar)", func() {
@@ -216,17 +259,24 @@ var _ = Describe("Processor Forwarding", func() {
 			Expect(resp.StatusCode()).To(Equal(fh.StatusOK))
 
 			// Wait until the fake target receives the forwarded request.
-			Eventually(func() http.Header {
+			var received receivedRequest
+			Eventually(func() bool {
 				receivedMu.Lock()
 				defer receivedMu.Unlock()
-				return receivedHeader
-			}, 5*time.Second, 200*time.Millisecond).ShouldNot(BeEmpty())
+				if len(receivedReqs) == 0 {
+					return false
+				}
+				received = receivedReqs[0]
+				return true
+			}, 5*time.Second, 200*time.Millisecond).Should(BeTrue())
 
 			// Verify that the forwarded request contains the expected header.
 			receivedMu.Lock()
 			defer receivedMu.Unlock()
-			Expect(receivedHeader).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Scope-OrgID"), []string{cfg.Tenant.Prefix + "solar-org"}))
-			Expect(receivedHeader).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Prometheus-Remote-Write-Version"), []string{"0.1.0"}))
+			Expect(received.Header).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Scope-OrgID"), []string{cfg.Tenant.Prefix + "solar-org"}))
+			Expect(received.Header).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Prometheus-Remote-Write-Version"), []string{"0.1.0"}))
+
+			//clearRequests()
 		})
 
 		By("proxy correct tenant (wind)", func() {
@@ -267,17 +317,24 @@ var _ = Describe("Processor Forwarding", func() {
 			Expect(resp.StatusCode()).To(Equal(fh.StatusOK))
 
 			// Wait until the fake target receives the forwarded request.
-			Eventually(func() http.Header {
+			var received receivedRequest
+			Eventually(func() bool {
 				receivedMu.Lock()
 				defer receivedMu.Unlock()
-				return receivedHeader
-			}, 5*time.Second, 200*time.Millisecond).ShouldNot(BeEmpty())
+				if len(receivedReqs) == 0 {
+					return false
+				}
+				received = receivedReqs[0]
+				return true
+			}, 5*time.Second, 200*time.Millisecond).Should(BeTrue())
 
 			// Verify that the forwarded request contains the expected header.
 			receivedMu.Lock()
 			defer receivedMu.Unlock()
-			Expect(receivedHeader).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Scope-OrgID"), []string{cfg.Tenant.Prefix + "wind"}))
-			Expect(receivedHeader).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Prometheus-Remote-Write-Version"), []string{"0.1.0"}))
+			Expect(received.Header).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Scope-OrgID"), []string{cfg.Tenant.Prefix + "wind"}))
+			Expect(received.Header).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Prometheus-Remote-Write-Version"), []string{"0.1.0"}))
+
+			//clearRequests()
 		})
 
 		By("proxy correct tenant (green)", func() {
@@ -318,17 +375,24 @@ var _ = Describe("Processor Forwarding", func() {
 			Expect(resp.StatusCode()).To(Equal(fh.StatusOK))
 
 			// Wait until the fake target receives the forwarded request.
-			Eventually(func() http.Header {
+			var received receivedRequest
+			Eventually(func() bool {
 				receivedMu.Lock()
 				defer receivedMu.Unlock()
-				return receivedHeader
-			}, 5*time.Second, 200*time.Millisecond).ShouldNot(BeEmpty())
+				if len(receivedReqs) == 0 {
+					return false
+				}
+				received = receivedReqs[0]
+				return true
+			}, 5*time.Second, 200*time.Millisecond).Should(BeTrue())
 
 			// Verify that the forwarded request contains the expected header.
 			receivedMu.Lock()
 			defer receivedMu.Unlock()
-			Expect(receivedHeader).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Scope-OrgID"), []string{cfg.Tenant.Prefix + "green-org"}))
-			Expect(receivedHeader).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Prometheus-Remote-Write-Version"), []string{"0.1.0"}))
+			Expect(received.Header).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Scope-OrgID"), []string{cfg.Tenant.Prefix + "green-org"}))
+			Expect(received.Header).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Prometheus-Remote-Write-Version"), []string{"0.1.0"}))
+
+			//clearRequests()
 		})
 
 		By("default on no match", func() {
@@ -369,17 +433,24 @@ var _ = Describe("Processor Forwarding", func() {
 			Expect(resp.StatusCode()).To(Equal(fh.StatusOK))
 
 			// Wait until the fake target receives the forwarded request.
-			Eventually(func() http.Header {
+			var received receivedRequest
+			Eventually(func() bool {
 				receivedMu.Lock()
 				defer receivedMu.Unlock()
-				return receivedHeader
-			}, 5*time.Second, 200*time.Millisecond).ShouldNot(BeEmpty())
+				if len(receivedReqs) == 0 {
+					return false
+				}
+				received = receivedReqs[0]
+				return true
+			}, 5*time.Second, 200*time.Millisecond).Should(BeTrue())
 
 			// Verify that the forwarded request contains the expected header.
 			receivedMu.Lock()
 			defer receivedMu.Unlock()
-			Expect(receivedHeader).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Scope-OrgID"), []string{cfg.Tenant.Prefix + cfg.Tenant.Default}))
-			Expect(receivedHeader).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Prometheus-Remote-Write-Version"), []string{"0.1.0"}))
+			Expect(received.Header).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Scope-OrgID"), []string{cfg.Tenant.Prefix + cfg.Tenant.Default}))
+			Expect(received.Header).To(HaveKeyWithValue(http.CanonicalHeaderKey("X-Prometheus-Remote-Write-Version"), []string{"0.1.0"}))
+
+			//clearRequests()
 		})
 
 	})
