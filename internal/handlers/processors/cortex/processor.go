@@ -96,9 +96,11 @@ func createTenantRequests(h *handler.Handler, req *fh.Request, wr *prompb.WriteR
 			tenant, err := processTimeseries(h, req, &ts)
 			if err != nil {
 				errMutex.Lock()
+
 				if firstErr == nil {
 					firstErr = err
 				}
+
 				errMutex.Unlock()
 
 				return

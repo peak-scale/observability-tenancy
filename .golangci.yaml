@@ -16,6 +16,7 @@ linters:
     - lll
     - mnd
     - nilnil
+    - noinlineerr
     - nonamedreturns
     - paralleltest
     - perfsprint

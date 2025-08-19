@@ -99,7 +99,7 @@ func (p *Handler) Start(ctx context.Context) error {
 	p.Log.Info("starting", "name", p.Srv.Name, "addr", p.Config.Bind)
 
 	// Run your processor (blocking call)
-	if err := p.run(); err != nil {
+	if err := p.run(ctx); err != nil {
 		return fmt.Errorf("failed to run processor: %w", err)
 	}
 
@@ -219,6 +219,7 @@ func (p *Handler) handle(ctx *fh.RequestCtx) {
 
 out:
 	ctx.SetBody(body)
+
 	ctx.SetStatusCode(code)
 }
 
@@ -304,8 +305,10 @@ func (p *Handler) send(
 	return DispatchResult{Code: resp.StatusCode(), Body: resp.Body(), Duration: time.Since(start).Seconds(), Tenant: tenant}
 }
 
-func (p *Handler) run() (err error) {
-	l, err := net.Listen("tcp", p.Config.Bind)
+func (p *Handler) run(ctx context.Context) (err error) {
+	lc := net.ListenConfig{}
+
+	l, err := lc.Listen(ctx, "tcp", p.Config.Bind)
 	if err != nil {
 		return err
 	}

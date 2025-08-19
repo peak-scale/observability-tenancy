@@ -21,6 +21,7 @@ import (
 
 type StoreController struct {
 	client.Client
+
 	Metrics *metrics.ProxyRecorder
 	Scheme  *runtime.Scheme
 	Store   *stores.NamespaceStore
