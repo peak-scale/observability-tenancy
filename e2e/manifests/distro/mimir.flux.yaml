@@ -79,7 +79,7 @@ spec:
         size: 2Gi
     store_gateway:
       zoneAwareReplication:
-       enabled: false
+        enabled: false
       persistentVolume:
         size: 2Gi
     mimir:

@@ -222,8 +222,6 @@ e2e-install-loki:
 e2e-load-image-loki:
 	kind load docker-image --name $(KIND_K8S_NAME) $(LOKI_FULL_IMG):$(VERSION)
 
-
-
 wait-for-helmreleases:
 	@ echo "Waiting for all HelmReleases to have observedGeneration >= 0..."
 	@while [ "$$($(KUBECTL) get helmrelease -A -o jsonpath='{range .items[?(@.status.observedGeneration<0)]}{.metadata.namespace}{" "}{.metadata.name}{"\n"}{end}' | wc -l)" -ne 0 ]; do \

@@ -24,6 +24,8 @@ config:
   # Since metadata requests have no timeseries in them - we cannot divide them into tenants
   # So the metadata requests will be sent to the default tenant only, if one is not defined - they will be dropped
   metadata: false
+  # -- HTTP error code to return when the request is rejected (backend unavailable, no tenant found, etc.). 429 indicates for most clients that the request was rejected and that it should be retried later.
+  httpErrorCode: 429
   # -- Maximum duration to keep outgoing connections alive (to Cortex/Mimir)
   # Useful for resetting L4 load-balancer state
   # Use 0 to keep them indefinitely
@@ -61,18 +63,25 @@ config:
     prefixPreferSource: false
     # -- Whether to remove the tenant label from the request
     labelRemove: false
+    # -- Set this value to add the evaluated tenant as label on the data set. If empty, no label is added
+    tenantLabel: ""
+    # -- Whether to set the HTTP header (Header above) with the tenant ID. If false, no header will be set. Useful when you just want to aggregate the tenant as label to the data set.
+    setHeader: true
     # -- To which header to add the tenant ID
-    header: ""
+    header: X-Scope-OrgID
     # -- Which tenant ID to use if the label is missing in any of the timeseries
     # If this is not set or empty then the write request with missing tenant label
     # will be rejected with HTTP code 400
     default: ""
-    # -- If no tenant is defined via annotation, then use the namespace name as the tenant ID.
+    # -- When no tenant ID is defined via namespace annotations, use the namespace name as tenant ID.
+    # -- This has priority over the `default` tenant ID.
     setNamespaceAsDefault: false
     # -- Enable if you want all metrics from Prometheus to be accepted with a 204 HTTP code
     # regardless of the response from Cortex. This can lose metrics if Cortex is
     # throwing rejections.
     acceptAll: false
+
+
 
 # Arguments for the controller
 args:

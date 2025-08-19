@@ -90,8 +90,8 @@ spec:
 apiVersion: v1
 kind: Secret
 metadata:
-    name: minio-users
-    namespace: monitoring-system
+  name: minio-users
+  namespace: monitoring-system
 type: Opaque
 stringData:
     observability: |

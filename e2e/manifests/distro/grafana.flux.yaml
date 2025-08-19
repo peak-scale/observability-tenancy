@@ -12,7 +12,7 @@ apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: grafana
-  namespace: flux-system 
+  namespace: flux-system
 spec:
   serviceAccountName: kustomize-controller
   interval: 15m
@@ -115,7 +115,6 @@ spec:
               httpHeaderName1: "X-Scope-OrgID"
             secureJsonData:
               httpHeaderValue1: "green"
-
           # https://grafana.com/docs/grafana/latest/datasources/tempo/configure-tempo-data-source/#provision-the-data-source
           - name: Tempo (Direct)
             uid: tempo

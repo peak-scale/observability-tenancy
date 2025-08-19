@@ -4,9 +4,6 @@ backend:
   auth:
     username: foo
     password: bar
-# selector:
-#   matchLabels:
-#     test: me
 ipv6: false
 maxConnectionsPerHost: 64
 timeout: 10s

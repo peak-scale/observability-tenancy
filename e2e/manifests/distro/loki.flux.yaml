@@ -7,7 +7,7 @@ metadata:
 spec:
   interval: 24h0m0s
   url: https://grafana.github.io/helm-charts
---- 
+---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -37,7 +37,7 @@ spec:
   values:
     minio:
       enabled: false
-    global: 
+    global:
       clusterDomain: "cluster.local"
       dnsService: "kube-dns"
       dnsNamespace: "kube-system"
@@ -82,7 +82,7 @@ spec:
         split_queries_by_interval: 15m
         query_timeout: 300s
         volume_enabled: true
-      schemaConfig :
+      schemaConfig:
         configs:
         - from: "2024-04-01"
           store: tsdb
