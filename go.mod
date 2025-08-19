@@ -16,7 +16,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.24.0
 	github.com/onsi/gomega v1.37.0
 	github.com/pkg/errors v0.9.1
-	github.com/projectcapsule/capsule v0.10.4
+	github.com/projectcapsule/capsule v0.10.5
 	github.com/prometheus/client_golang v1.22.0
 	github.com/prometheus/prometheus v0.302.1
 	github.com/stretchr/testify v1.10.0
