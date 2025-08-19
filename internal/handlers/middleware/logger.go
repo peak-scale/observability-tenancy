@@ -17,12 +17,9 @@ func LoggerMiddleware(log logr.Logger) func(next fasthttp.RequestHandler) fastht
 			remote := ctx.RemoteAddr().String()
 
 			// Log Headers
-			ctx.Request.Header.VisitAllInOrder(func(key, value []byte) {
-				log.V(5).Info("request header",
-					"key", string(key),
-					"value", string(value),
-				)
-			})
+			for k, kv := range ctx.Request.Header.AllInOrder() {
+				log.V(5).Info("request header", "key", string(k), "value", string(kv))
+			}
 
 			// Call the next handler in the chain
 			next(ctx)

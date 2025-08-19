@@ -16,6 +16,7 @@ type NamespaceMapping struct {
 
 type NamespaceStore struct {
 	sync.RWMutex
+
 	namespaces map[string]*NamespaceMapping
 }
 

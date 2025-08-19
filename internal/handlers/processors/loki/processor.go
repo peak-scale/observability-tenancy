@@ -93,9 +93,11 @@ func createTenantRequests(h *handler.Handler, req *fh.Request, pr *logproto.Push
 			tenant, err := processStreamRequest(h, req, &stream)
 			if err != nil {
 				errMutex.Lock()
+
 				if firstErr == nil {
 					firstErr = err
 				}
+
 				errMutex.Unlock()
 
 				return
