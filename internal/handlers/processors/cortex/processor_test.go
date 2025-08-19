@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/gogo/protobuf/proto"
-	"github.com/golang/snappy"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/prometheus/prompb"
@@ -27,15 +25,6 @@ import (
 
 var endpoint = "http://127.0.0.1:31001/push"
 
-// helper: decode a forwarded write request body into prompb.WriteRequest
-var decodeWriteReq = func(b []byte) *prompb.WriteRequest {
-	raw, err := snappy.Decode(nil, b)
-	Expect(err).NotTo(HaveOccurred(), "snappy decode failed")
-	var wr prompb.WriteRequest
-	Expect(proto.Unmarshal(raw, &wr)).To(Succeed(), "proto unmarshal failed")
-	return &wr
-}
-
 // helper: fetch a label value by name
 var getLabel = func(lbls []prompb.Label, name string) (string, bool) {
 	for _, l := range lbls {
@@ -46,7 +35,7 @@ var getLabel = func(lbls []prompb.Label, name string) (string, bool) {
 	return "", false
 }
 
-var _ = Describe("Processor Forwarding", func() {
+var _ = Describe("Processor Forwarding (Cortex)", func() {
 	var (
 		proc       *handler.Handler
 		fakeTarget *httptest.Server

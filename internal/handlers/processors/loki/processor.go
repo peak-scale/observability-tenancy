@@ -163,8 +163,7 @@ func processStreamRequest(processor *handler.Handler, req *fh.Request, stream *l
 	)
 
 	var streamLabels labels.Labels
-
-	if streamLabels, err = parser.ParseMetric(stream.Labels); err != nil {
+	if streamLabels, err = parseStreamLabels(stream.Labels); err != nil {
 		return "", err
 	}
 
@@ -183,7 +182,23 @@ func processStreamRequest(processor *handler.Handler, req *fh.Request, stream *l
 
 	mapping := processor.Store.GetOrg(namespace)
 	if mapping == nil {
-		return "", fmt.Errorf("no tenant assigned: {'%s'} not found and no default defined", strings.Join(processor.Config.Tenant.Labels, "','"))
+		if processor.Config.Tenant.Default == "" {
+			return "", fmt.Errorf("no tenant assigned for %s: labels {'%s'} not found and no defaulting defined", namespace, strings.Join(processor.Config.Tenant.Labels, "','"))
+		}
+
+		tenant = processor.Config.Tenant.Default
+	} else {
+		// Add Additional Labels
+		if mapping.Labels != nil {
+			for l, k := range mapping.Labels {
+				streamLabels = append(streamLabels, labels.Label{
+					Name:  l,
+					Value: k,
+				})
+			}
+		}
+
+		tenant = mapping.Organisation
 	}
 
 	tenantPrefix := processor.Config.Tenant.Prefix
@@ -194,17 +209,7 @@ func processStreamRequest(processor *handler.Handler, req *fh.Request, stream *l
 		}
 	}
 
-	tenant = tenantPrefix + mapping.Organisation
-
-	// Add Additional Labels
-	if mapping.Labels != nil {
-		for l, k := range mapping.Labels {
-			streamLabels = append(streamLabels, labels.Label{
-				Name:  l,
-				Value: k,
-			})
-		}
-	}
+	tenant = tenantPrefix + tenant
 
 	// Add Tenant as Label
 	if processor.Config.Tenant.TenantLabel != "" {
@@ -229,4 +234,8 @@ func processStreamRequest(processor *handler.Handler, req *fh.Request, stream *l
 
 func removeOrdered(slice []labels.Label, s int) []labels.Label {
 	return append(slice[:s], slice[s+1:]...)
+}
+
+func parseStreamLabels(labels string) (labels.Labels, error) {
+	return parser.ParseMetric(labels)
 }
