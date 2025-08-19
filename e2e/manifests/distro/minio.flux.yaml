@@ -94,9 +94,9 @@ metadata:
   namespace: monitoring-system
 type: Opaque
 stringData:
-    observability: |
-        username=observability
-        password=observability
-        disabled=false
-        policies=observability
-        setPolicies=false
+  observability: |
+    username=observability
+    password=observability
+    disabled=false
+    policies=observability
+    setPolicies=false

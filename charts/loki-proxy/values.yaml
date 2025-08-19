@@ -81,8 +81,6 @@ config:
     # throwing rejections.
     acceptAll: false
 
-
-
 # Arguments for the controller
 args:
   # -- Enable Profiling

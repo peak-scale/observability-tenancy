@@ -69,7 +69,7 @@ spec:
         capabilities:
           drop:
             - ALL
-      resources: 
+      resources:
         limits:
           cpu: 300m
           memory: 512Mi
