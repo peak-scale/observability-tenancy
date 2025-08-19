@@ -83,6 +83,10 @@ func Load(file string) (*Config, error) {
 		cfg.Concurrency = 512
 	}
 
+	if cfg.Tenant.Header == "" {
+		cfg.Tenant.Header = "X-Scope-OrgID"
+	}
+
 	// Default to the Label if list is empty
 	if len(cfg.Tenant.Labels) == 0 {
 		cfg.Tenant.Labels = append(cfg.Tenant.Labels, "__tenant__")

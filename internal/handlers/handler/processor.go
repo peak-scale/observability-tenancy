@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/golang/snappy"
 	"github.com/google/uuid"
 	me "github.com/hashicorp/go-multierror"
 	fh "github.com/valyala/fasthttp"
@@ -172,13 +173,6 @@ func (p *Handler) handle(ctx *fh.RequestCtx) {
 
 	tenantPrefix := p.Config.Tenant.Prefix
 
-	if p.Config.Tenant.PrefixPreferSource {
-		sourceTenantPrefix := string(ctx.Request.Header.Peek(p.Config.Tenant.Header))
-		if sourceTenantPrefix != "" {
-			tenantPrefix = sourceTenantPrefix + "-"
-		}
-	}
-
 	var errs *me.Error
 
 	results := p.dispatch(ctx.RemoteAddr(), reqID, tenantPrefix, data)
@@ -204,7 +198,7 @@ func (p *Handler) handle(ctx *fh.RequestCtx) {
 		}
 
 		if r.Code < 200 || r.Code >= 300 {
-			p.Log.Info("src=%s req_id=%s HTTP code %d (%s)", ctx.RemoteAddr(), reqID, r.Code, string(r.Body))
+			p.Log.V(5).Info("src=%s req_id=%s HTTP code %d (%s)", ctx.RemoteAddr(), reqID, r.Code, string(r.Body))
 		}
 
 		if r.Code > code {
@@ -282,7 +276,7 @@ func (p *Handler) send(
 	req.Header.Set("Content-Encoding", "snappy")
 	req.Header.Set("Content-Type", "application/x-protobuf")
 
-	if p.Config.Tenant.Header != "" {
+	if p.Config.Tenant.SetHeader {
 		req.Header.Set(p.Config.Tenant.Header, tenant)
 	}
 
@@ -294,7 +288,7 @@ func (p *Handler) send(
 	}
 
 	req.Header.SetMethod(fh.MethodPost)
-	req.SetBody(body)
+	req.SetBody(snappy.Encode(nil, body))
 
 	if err := p.Cli.DoTimeout(req, resp, p.Config.Timeout); err != nil {
 		return DispatchResult{Error: err}

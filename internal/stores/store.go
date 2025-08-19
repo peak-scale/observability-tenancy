@@ -39,6 +39,8 @@ func (s *NamespaceStore) Update(namespace *corev1.Namespace, cfg *config.TenantC
 		mapping.Organisation = org
 	} else if cfg != nil && cfg.SetNamespaceAsDefault {
 		mapping.Organisation = namespace.Name
+	} else if cfg != nil && cfg.Default != "" {
+		mapping.Organisation = cfg.Default
 	}
 
 	if mapping.Organisation == "" {

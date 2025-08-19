@@ -60,8 +60,12 @@ tenant:
   labelRemove: true
 
   # To which header to add the tenant ID
-  # If this is not set, no header with the tenant ID will be added
+  # This value is also considered as source for the prefixPreferSource option
   header: X-Scope-OrgID
+
+  # Whether to set the HTTP header (Header above) with the tenant ID
+  # If false, no header will be set. Useful when you just want to aggregate the tenant as label to the data set.
+  setHeader: true
 
   # Which tenant ID to use if the label is missing in any of the timeseries
   # If this is not set or empty then the write request with missing tenant label

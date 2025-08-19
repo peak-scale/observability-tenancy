@@ -43,7 +43,7 @@ func process(processor *handler.Handler, req *fh.Request) (map[string][]byte, er
 		}
 	}
 
-	m, err := createTenantRequests(processor, wrReqIn)
+	m, err := createTenantRequests(processor, req, wrReqIn)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +78,7 @@ func marshal(wr *prompb.WriteRequest) (bufOut []byte, err error) {
 	return snappy.Encode(nil, b), nil
 }
 
-func createTenantRequests(h *handler.Handler, req *prompb.WriteRequest) (r map[string][]byte, err error) {
+func createTenantRequests(h *handler.Handler, req *fh.Request, wr *prompb.WriteRequest) (r map[string][]byte, err error) {
 	m := sync.Map{}
 
 	var (
@@ -87,13 +87,13 @@ func createTenantRequests(h *handler.Handler, req *prompb.WriteRequest) (r map[s
 		firstErr error
 	)
 
-	for _, ts := range req.Timeseries {
+	for _, ts := range wr.Timeseries {
 		wg.Add(1)
 
 		go func(ts prompb.TimeSeries) {
 			defer wg.Done()
 
-			tenant, err := processTimeseries(h, &ts)
+			tenant, err := processTimeseries(h, req, &ts)
 			if err != nil {
 				errMutex.Lock()
 				if firstErr == nil {
@@ -110,14 +110,14 @@ func createTenantRequests(h *handler.Handler, req *prompb.WriteRequest) (r map[s
 
 			v, _ := m.LoadOrStore(tenant, &prompb.WriteRequest{Timeseries: []prompb.TimeSeries{}})
 
-			req, ok := v.(*prompb.WriteRequest)
+			wr, ok := v.(*prompb.WriteRequest)
 			if !ok {
 				h.Log.Error(fmt.Errorf("expected *prompb.WriteRequest, got %T", v), "Unable to marshal tenant request")
 
 				return
 			}
 
-			req.Timeseries = append(req.Timeseries, ts)
+			wr.Timeseries = append(wr.Timeseries, ts)
 		}(ts)
 	}
 
@@ -163,7 +163,7 @@ func removeOrdered(slice []prompb.Label, s int) []prompb.Label {
 	return append(slice[:s], slice[s+1:]...)
 }
 
-func processTimeseries(processor *handler.Handler, ts *prompb.TimeSeries) (tenant string, err error) {
+func processTimeseries(processor *handler.Handler, req *fh.Request, ts *prompb.TimeSeries) (tenant string, err error) {
 	var (
 		namespace string
 		idx       int
@@ -183,35 +183,38 @@ func processTimeseries(processor *handler.Handler, ts *prompb.TimeSeries) (tenan
 	}
 
 	mapping := processor.Store.GetOrg(namespace)
-
 	if mapping == nil {
-		if processor.Config.Tenant.Default == "" {
-			return "", fmt.Errorf("no tenant assigned: {'%s'} not found and no default defined", strings.Join(processor.Config.Tenant.Labels, "','"))
-		}
+		return "", fmt.Errorf("no tenant assigned: {'%s'} not found and no default defined", strings.Join(processor.Config.Tenant.Labels, "','"))
+	}
 
-		tenant = processor.Config.Tenant.Default
-	} else {
-		if len(mapping.Labels) > 0 {
-			for l, k := range mapping.Labels {
-				ts.Labels = append(ts.Labels, prompb.Label{
-					Name:  l,
-					Value: k,
-				})
-			}
+	tenantPrefix := processor.Config.Tenant.Prefix
+	if processor.Config.Tenant.PrefixPreferSource {
+		sourceTenantPrefix := string(req.Header.Peek(processor.Config.Tenant.Header))
+		if sourceTenantPrefix != "" {
+			tenantPrefix = sourceTenantPrefix + "-"
 		}
+	}
 
-		namespace = mapping.Organisation
+	tenant = tenantPrefix + mapping.Organisation
+
+	if len(mapping.Labels) > 0 {
+		for l, k := range mapping.Labels {
+			ts.Labels = append(ts.Labels, prompb.Label{
+				Name:  l,
+				Value: k,
+			})
+		}
 	}
 
 	if processor.Config.Tenant.TenantLabel != "" {
 		ts.Labels = append(ts.Labels, prompb.Label{
 			Name:  processor.Config.Tenant.TenantLabel,
-			Value: mapping.Organisation,
+			Value: tenant,
 		})
 	}
 
 	// Handling Label Removing
-	if processor.Config.Tenant.LabelRemove {
+	if idx != 0 && processor.Config.Tenant.LabelRemove {
 		// Order is important. See:
 		// https://github.com/thanos-io/thanos/issues/6452
 		// https://github.com/prometheus/prometheus/issues/11505
