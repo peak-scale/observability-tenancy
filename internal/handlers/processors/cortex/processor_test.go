@@ -177,6 +177,9 @@ var _ = Describe("Processor Forwarding (Cortex)", func() {
 			log.Info("Starting Start")
 		}()
 
+		// Allow some time for the processor to start.
+		time.Sleep(500 * time.Millisecond)
+
 		By("settings default tenant", func() {
 
 			// Prepare a minimal prompb.WriteRequest.
