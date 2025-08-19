@@ -171,11 +171,9 @@ func (p *Handler) handle(ctx *fh.RequestCtx) {
 
 	reqID, _ := uuid.NewRandom()
 
-	tenantPrefix := p.Config.Tenant.Prefix
-
 	var errs *me.Error
 
-	results := p.dispatch(ctx.RemoteAddr(), reqID, tenantPrefix, data)
+	results := p.dispatch(ctx.RemoteAddr(), reqID, data)
 
 	code, body := fh.StatusOK, []byte("Ok")
 
@@ -223,7 +221,6 @@ out:
 func (p *Handler) dispatch(
 	clientIP net.Addr,
 	reqID uuid.UUID,
-	tenantPrefix string,
 	m map[string][]byte,
 ) (res []DispatchResult) {
 	var wg sync.WaitGroup
@@ -240,7 +237,7 @@ func (p *Handler) dispatch(
 
 			r := p.send(clientIP, reqID, tenant, buf)
 			res[idx] = r
-		}(i, tenantPrefix+tenant, buf)
+		}(i, tenant, buf)
 
 		i++
 	}

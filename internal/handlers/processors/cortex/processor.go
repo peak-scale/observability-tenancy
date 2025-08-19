@@ -172,7 +172,7 @@ func processTimeseries(processor *handler.Handler, req *fh.Request, ts *prompb.T
 	for i, l := range ts.Labels {
 		for _, configuredLabel := range processor.Config.Tenant.Labels {
 			if l.Name == configuredLabel {
-				processor.Log.Info("found", "label", configuredLabel, "value", l.Value)
+				processor.Log.V(5).Info("found", "label", configuredLabel, "value", l.Value)
 
 				namespace = l.Value
 				idx = i
@@ -184,7 +184,22 @@ func processTimeseries(processor *handler.Handler, req *fh.Request, ts *prompb.T
 
 	mapping := processor.Store.GetOrg(namespace)
 	if mapping == nil {
-		return "", fmt.Errorf("no tenant assigned: {'%s'} not found and no default defined", strings.Join(processor.Config.Tenant.Labels, "','"))
+		if processor.Config.Tenant.Default == "" {
+			return "", fmt.Errorf("no tenant assigned for %s: labels {'%s'} not found and no defaulting defined", namespace, strings.Join(processor.Config.Tenant.Labels, "','"))
+		}
+
+		tenant = processor.Config.Tenant.Default
+	} else {
+		tenant = mapping.Organisation
+
+		if len(mapping.Labels) > 0 {
+			for l, k := range mapping.Labels {
+				ts.Labels = append(ts.Labels, prompb.Label{
+					Name:  l,
+					Value: k,
+				})
+			}
+		}
 	}
 
 	tenantPrefix := processor.Config.Tenant.Prefix
@@ -195,16 +210,7 @@ func processTimeseries(processor *handler.Handler, req *fh.Request, ts *prompb.T
 		}
 	}
 
-	tenant = tenantPrefix + mapping.Organisation
-
-	if len(mapping.Labels) > 0 {
-		for l, k := range mapping.Labels {
-			ts.Labels = append(ts.Labels, prompb.Label{
-				Name:  l,
-				Value: k,
-			})
-		}
-	}
+	tenant = tenantPrefix + tenant
 
 	if processor.Config.Tenant.TenantLabel != "" {
 		ts.Labels = append(ts.Labels, prompb.Label{

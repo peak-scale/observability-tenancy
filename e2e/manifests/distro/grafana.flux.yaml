@@ -45,19 +45,79 @@ spec:
         # -- Datasources linked to the Grafana instance. Override if you disable any components.
         datasources:
           # https://grafana.com/docs/grafana/latest/datasources/loki/#provision-the-loki-data-source
-          - name: Loki
+          - name: Loki (Direct)
             uid: loki
             type: loki
             url: http://loki-distributed-gateway:80
-            isDefault: false
+          - name: Loki (Solar)
+            uid: loki
+            type: loki
+            url: http://loki-distributed-gateway:80
+            jsonData:
+              httpHeaderName1: "X-Scope-OrgID"
+            secureJsonData:
+              httpHeaderValue1: "green"
+          - name: Loki (Wind)
+            uid: loki
+            type: loki
+            url: http://loki-distributed-gateway:80
+            jsonData:
+              httpHeaderName1: "X-Scope-OrgID"
+            secureJsonData:
+              httpHeaderValue1: "wind"
+          - name: Loki (Green)
+            uid: loki
+            type: loki
+            url: http://loki-distributed-gateway:80
+            jsonData:
+              httpHeaderName1: "X-Scope-OrgID"
+            secureJsonData:
+              httpHeaderValue1: "green"
           # https://grafana.com/docs/grafana/latest/datasources/prometheus/#provision-the-data-source
-          - name: Mimir
+          - name: Mimir (Direct)
             uid: prom
             type: prometheus
             url: http://mimir-distributed-nginx:80/prometheus
             isDefault: true
+          - name: Mimir (Solar)
+            uid: prom-solar
+            type: prometheus
+            cacheLevel: 'High'
+            disableRecordingRules: false
+            manageAlerts: true
+            prometheusType: Mimir
+            url: http://mimir-distributed-nginx:80/prometheus
+            jsonData:
+              httpHeaderName1: "X-Scope-OrgID"
+            secureJsonData:
+              httpHeaderValue1: "solar"
+          - name: Mimir (Wind)
+            uid: prom-solar
+            type: prometheus
+            cacheLevel: 'High'
+            disableRecordingRules: false
+            manageAlerts: true
+            prometheusType: Mimir
+            url: http://mimir-distributed-nginx:80/prometheus
+            jsonData:
+              httpHeaderName1: "X-Scope-OrgID"
+            secureJsonData:
+              httpHeaderValue1: "wind"
+          - name: Mimir (Green)
+            uid: prom-solar
+            type: prometheus
+            cacheLevel: 'High'
+            disableRecordingRules: false
+            manageAlerts: true
+            prometheusType: Mimir
+            url: http://mimir-distributed-nginx:80/prometheus
+            jsonData:
+              httpHeaderName1: "X-Scope-OrgID"
+            secureJsonData:
+              httpHeaderValue1: "green"
+
           # https://grafana.com/docs/grafana/latest/datasources/tempo/configure-tempo-data-source/#provision-the-data-source
-          - name: Tempo
+          - name: Tempo (Direct)
             uid: tempo
             type: tempo
             url: http:/tempo-query-frontend:3100
@@ -71,7 +131,7 @@ spec:
                 datasourceUid: prom
               serviceMap:
                 datasourceUid: prom
-          - name: Pyroscope
+          - name: Pyroscope (Direct)
             uid: pyroscope
             type: grafana-pyroscope-datasource
             url: http://pyroscope-headless:4040

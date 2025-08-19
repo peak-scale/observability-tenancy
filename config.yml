@@ -15,12 +15,12 @@ concurrency: 10
 metadata: false
 tenant:
   labels:
-    - tenant
-    - other_tenant
-  prefix: ""
+    - namespace
+    - target_namespace
+  prefix: "test-"
   prefixPreferSource: false
   labelRemove: true
   header: X-Scope-OrgID
-  default: "infra"
+  default: "default"
   acceptAll: false
   setNamespaceAsDefault: false

@@ -62,11 +62,11 @@ config:
     # -- Whether to remove the tenant label from the request
     labelRemove: false
     # -- To which header to add the tenant ID
-    header: "X-Scope-OrgID"
+    header: ""
     # -- Which tenant ID to use if the label is missing in any of the timeseries
     # If this is not set or empty then the write request with missing tenant label
     # will be rejected with HTTP code 400
-    default: loki-default
+    default: ""
     # -- If no tenant is defined via annotation, then use the namespace name as the tenant ID.
     setNamespaceAsDefault: false
     # -- Enable if you want all metrics from Prometheus to be accepted with a 204 HTTP code
@@ -162,7 +162,6 @@ pdb:
   enabled: false
   # -- The number of pods from that set that must still be available after the eviction
   minAvailable: 1
-
 
 # HorizontalPodAutoscaler
 autoscaling:

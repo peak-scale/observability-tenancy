@@ -179,16 +179,50 @@ e2e-exec: ginkgo
 e2e-destroy: kind
 	$(KIND) delete cluster --name $(KIND_K8S_NAME)
 
-e2e-install: e2e-install-distro
+e2e-install: e2e-install-distro e2e-load-image-cortex e2e-install-loki
+	@$(MAKE) wait-for-helmreleases
 
 e2e-install-distro:
 	@$(KUBECTL) kustomize e2e/manifests/flux/ | kubectl apply -f -
 	@$(KUBECTL) kustomize e2e/manifests/distro/ | kubectl apply -f -
-	@$(MAKE) wait-for-helmreleases
 
-.PHONY: e2e-load-image
-e2e-load-image: ko-build-all
-	kind load docker-image --name $(KIND_K8S_NAME) $(FULL_IMG):$(VERSION)
+e2e-install-cortex: VERSION := 0.0.0
+e2e-install-cortex: KO_TAGS := 0.0.0
+e2e-install-cortex:
+	$(HELM) upgrade \
+	    --dependency-update \
+		--debug \
+		--install \
+		--namespace monitoring-system \
+		--create-namespace \
+		--set args.logLevel=10 \
+		--set args.pprof=true \
+		cortex-proxy \
+		./charts/cortex-proxy
+
+.PHONY: e2e-load-image-cortex
+e2e-load-image-cortex:
+	kind load docker-image --name $(KIND_K8S_NAME) $(CORTEX_FULL_IMG):$(VERSION)
+
+e2e-install-loki: VERSION := 0.0.0
+e2e-install-loki: KO_TAGS := 0.0.0
+e2e-install-loki:
+	$(HELM) upgrade \
+	    --dependency-update \
+		--debug \
+		--install \
+		--namespace monitoring-system \
+		--create-namespace \
+		--set args.logLevel=10 \
+		--set args.pprof=true \
+		loki-proxy \
+		./charts/loki-proxy
+
+.PHONY: e2e-load-image-loki
+e2e-load-image-loki:
+	kind load docker-image --name $(KIND_K8S_NAME) $(LOKI_FULL_IMG):$(VERSION)
+
+
 
 wait-for-helmreleases:
 	@ echo "Waiting for all HelmReleases to have observedGeneration >= 0..."

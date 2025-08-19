@@ -3,10 +3,8 @@ package cortex
 import (
 	"context"
 	"io"
-	"log"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"sync"
 	"time"
 
@@ -27,7 +25,7 @@ import (
 	"github.com/peak-scale/observability-tenancy/internal/stores"
 )
 
-var baseLogger = log.New(os.Stderr, "", log.LstdFlags)
+var endpoint = "http://127.0.0.1:31001/push"
 
 // helper: decode a forwarded write request body into prompb.WriteRequest
 var decodeWriteReq = func(b []byte) *prompb.WriteRequest {
@@ -122,14 +120,6 @@ var _ = Describe("Processor Forwarding", func() {
 				Name: "wind",
 			},
 		}, &config.TenantConfig{
-			Labels: []string{
-				"namespace",
-				"target_namespace",
-			},
-			Header:                "X-Scope-OrgID",
-			Default:               "default",
-			Prefix:                "test-",
-			PrefixPreferSource:    false,
 			SetNamespaceAsDefault: true,
 		})
 	})
@@ -180,6 +170,7 @@ var _ = Describe("Processor Forwarding", func() {
 					"target_namespace",
 				},
 				Header:             "X-Scope-OrgID",
+				SetHeader:          true,
 				Default:            "default",
 				Prefix:             "test-",
 				PrefixPreferSource: false,
@@ -221,7 +212,7 @@ var _ = Describe("Processor Forwarding", func() {
 			// Since processor uses fasthttp, use its client for the test.
 			var req fh.Request
 			var resp fh.Response
-			req.SetRequestURI("http://127.0.0.1:31001/push")
+			req.SetRequestURI(endpoint)
 			req.Header.SetMethod(fh.MethodPost)
 			req.Header.Set("Content-Encoding", "snappy")
 			req.Header.Set("Content-Type", "application/x-protobuf")
@@ -278,7 +269,7 @@ var _ = Describe("Processor Forwarding", func() {
 			// Since processor uses fasthttp, use its client for the test.
 			var req fh.Request
 			var resp fh.Response
-			req.SetRequestURI("http://127.0.0.1:31001/push")
+			req.SetRequestURI(endpoint)
 			req.Header.SetMethod(fh.MethodPost)
 			req.Header.Set("Content-Encoding", "snappy")
 			req.Header.Set("Content-Type", "application/x-protobuf")
@@ -331,7 +322,7 @@ var _ = Describe("Processor Forwarding", func() {
 			// Since processor uses fasthttp, use its client for the test.
 			var req fh.Request
 			var resp fh.Response
-			req.SetRequestURI("http://127.0.0.1:31001/push")
+			req.SetRequestURI(endpoint)
 			req.Header.SetMethod(fh.MethodPost)
 			req.Header.Set("Content-Encoding", "snappy")
 			req.Header.Set("Content-Type", "application/x-protobuf")
@@ -384,7 +375,7 @@ var _ = Describe("Processor Forwarding", func() {
 			// Since processor uses fasthttp, use its client for the test.
 			var req fh.Request
 			var resp fh.Response
-			req.SetRequestURI("http://127.0.0.1:31001/push")
+			req.SetRequestURI(endpoint)
 			req.Header.SetMethod(fh.MethodPost)
 			req.Header.Set("Content-Encoding", "snappy")
 			req.Header.Set("Content-Type", "application/x-protobuf")
@@ -437,7 +428,7 @@ var _ = Describe("Processor Forwarding", func() {
 			// Since processor uses fasthttp, use its client for the test.
 			var req fh.Request
 			var resp fh.Response
-			req.SetRequestURI("http://127.0.0.1:31001/push")
+			req.SetRequestURI(endpoint)
 			req.Header.SetMethod(fh.MethodPost)
 			req.Header.Set("Content-Encoding", "snappy")
 			req.Header.Set("Content-Type", "application/x-protobuf")
@@ -495,7 +486,7 @@ var _ = Describe("Processor Forwarding", func() {
 
 			var req fh.Request
 			var resp fh.Response
-			req.SetRequestURI("http://127.0.0.1:31001/push")
+			req.SetRequestURI(endpoint)
 			req.Header.SetMethod(fh.MethodPost)
 			req.Header.Set("Content-Encoding", "snappy")
 			req.Header.Set("Content-Type", "application/x-protobuf")
@@ -506,13 +497,17 @@ var _ = Describe("Processor Forwarding", func() {
 			Expect(resp.StatusCode()).To(Equal(fh.StatusOK))
 
 			Eventually(func() int {
+				receivedMu.Lock()
 				l := len(receivedReqs)
+				receivedMu.Unlock()
 				return l
 			}, 5*time.Second, 100*time.Millisecond).Should(Equal(2), "expected exactly two forwarded requests")
 
 			// snapshot without holding the lock while asserting
+			receivedMu.Lock()
 			reqs := make([]receivedRequest, len(receivedReqs))
 			copy(reqs, receivedReqs)
+			receivedMu.Unlock()
 
 			// collect headers for assertions
 			orgIDs := []string{
@@ -527,10 +522,10 @@ var _ = Describe("Processor Forwarding", func() {
 
 			// For each forwarded request: decode body and assert labels
 			for i, r := range reqs {
-				wr, err := unmarshal(r.Body)
+				buf, err := unmarshal(r.Body)
 				Expect(err).NotTo(HaveOccurred(), "failed to unmarshal body of forwarded request %d", i)
 
-				lbls := wr.Timeseries[0].Labels
+				lbls := buf.Timeseries[0].Labels
 
 				// tenant label must be set and equal to the header org id
 				tenantLabelName := cfg.Tenant.TenantLabel // e.g. "tenant"
@@ -551,5 +546,4 @@ var _ = Describe("Processor Forwarding", func() {
 			clearRequests() // call when not holding the lock
 		})
 	})
-
 })

@@ -80,13 +80,21 @@ func TestTenantStore_Config(t *testing.T) {
 		},
 	}
 
+	ns3 := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "tenant-3",
+		},
+	}
+
 	cfg := &config.TenantConfig{
+		Default:               "infra",
 		SetNamespaceAsDefault: true,
 	}
 
 	// Update the store with tenant1 for ns1 and ns2.
 	store.Update(ns1, cfg)
 	store.Update(ns2, cfg)
+	store.Update(ns3, cfg)
 	Expect(store.GetOrg(ns1.Name)).To(Equal(&stores.NamespaceMapping{
 		Organisation: ns1.Name,
 		Labels: map[string]string{
@@ -101,4 +109,9 @@ func TestTenantStore_Config(t *testing.T) {
 			"org":  "org-2",
 		},
 	}))
+	Expect(store.GetOrg(ns3.Name)).To(Equal(&stores.NamespaceMapping{
+		Organisation: ns3.Name,
+		Labels:       map[string]string{},
+	}))
+
 }

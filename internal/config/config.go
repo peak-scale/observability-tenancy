@@ -5,21 +5,22 @@ import (
 	"time"
 
 	"github.com/caarlos0/env/v8"
+	"github.com/creasty/defaults"
 	"github.com/pkg/errors"
 	fhu "github.com/valyala/fasthttp/fasthttputil"
 	"gopkg.in/yaml.v2"
 )
 
 type Config struct {
-	Bind            string        `env:"BIND"                   yaml:"bind"`
+	Bind            string        `default:"0.0.0.0:8080" env:"BIND" yaml:"bind"`
 	Backend         *Backend      `yaml:"backend"`
-	EnableIPv6      bool          `yaml:"ipv6"`
+	EnableIPv6      bool          `default:"false" yaml:"ipv6"`
 	HTTPErrorCode   int           `yaml:"httpErrorCode"`
 	Selector        LabelSelector `yaml:"selector,omitempty"`
 	Timeout         time.Duration `yaml:"timeout"`
 	TimeoutShutdown time.Duration `yaml:"timeoutShutdown"`
 	Concurrency     int           `yaml:"concurrency"`
-	Metadata        bool          `yaml:"metadata"`
+	Metadata        bool          `default:"true" yaml:"metadata"`
 	MaxConnDuration time.Duration `yaml:"maxConnectionDuration"`
 	MaxConnsPerHost int           `yaml:"maxConnectionsPerHost"`
 	Tenant          *TenantConfig `yaml:"tenant"`
@@ -37,16 +38,16 @@ type Backend struct {
 
 type TenantConfig struct {
 	Labels                []string `yaml:"labels"`
-	SetNamespaceAsDefault bool     `yaml:"setNamespaceAsDefault"`
+	SetNamespaceAsDefault bool     `default:"false" yaml:"setNamespaceAsDefault"`
 	Prefix                string   `yaml:"prefix"`
-	PrefixPreferSource    bool     `yaml:"prefixPreferSource"`
-	LabelRemove           bool     `yaml:"labelRemove"`
-	Header                string   `yaml:"header"`
-	SetHeader             bool     `yaml:"setHeader"`
+	PrefixPreferSource    bool     `default:"false" yaml:"prefixPreferSource"`
+	LabelRemove           bool     `default:"false" yaml:"labelRemove"`
+	Header                string   `default:"X-Scope-OrgID" yaml:"header"`
+	SetHeader             bool     `default:"true" yaml:"setHeader"`
 	TenantLabel           string   `yaml:"tenantLabel"`
 
 	Default   string `yaml:"default"`
-	AcceptAll bool   `yaml:"acceptAll"`
+	AcceptAll bool   `default:"true" yaml:"acceptAll"`
 }
 
 func Load(file string) (*Config, error) {
@@ -67,8 +68,8 @@ func Load(file string) (*Config, error) {
 		return nil, errors.Wrap(err, "Unable to parse env vars")
 	}
 
-	if cfg.Bind == "" {
-		cfg.Bind = "0.0.0.0:8080"
+	if err := defaults.Set(cfg); err != nil {
+		return nil, errors.Wrap(err, "Unable to apply defaults")
 	}
 
 	if cfg.Backend == nil {
@@ -81,10 +82,6 @@ func Load(file string) (*Config, error) {
 
 	if cfg.Concurrency == 0 {
 		cfg.Concurrency = 512
-	}
-
-	if cfg.Tenant.Header == "" {
-		cfg.Tenant.Header = "X-Scope-OrgID"
 	}
 
 	// Default to the Label if list is empty
