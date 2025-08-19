@@ -163,6 +163,7 @@ func processStreamRequest(processor *handler.Handler, req *fh.Request, stream *l
 	)
 
 	var streamLabels labels.Labels
+
 	if streamLabels, err = parseStreamLabels(stream.Labels); err != nil {
 		return "", err
 	}
@@ -202,6 +203,7 @@ func processStreamRequest(processor *handler.Handler, req *fh.Request, stream *l
 	}
 
 	tenantPrefix := processor.Config.Tenant.Prefix
+
 	if processor.Config.Tenant.PrefixPreferSource {
 		sourceTenantPrefix := string(req.Header.Peek(processor.Config.Tenant.Header))
 		if sourceTenantPrefix != "" {
@@ -229,7 +231,7 @@ func processStreamRequest(processor *handler.Handler, req *fh.Request, stream *l
 
 	stream.Labels = streamLabels.String()
 
-	return
+	return tenant, err
 }
 
 func removeOrdered(slice []labels.Label, s int) []labels.Label {

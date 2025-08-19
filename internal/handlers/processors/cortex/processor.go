@@ -203,6 +203,7 @@ func processTimeseries(processor *handler.Handler, req *fh.Request, ts *prompb.T
 	}
 
 	tenantPrefix := processor.Config.Tenant.Prefix
+
 	if processor.Config.Tenant.PrefixPreferSource {
 		sourceTenantPrefix := string(req.Header.Peek(processor.Config.Tenant.Header))
 		if sourceTenantPrefix != "" {

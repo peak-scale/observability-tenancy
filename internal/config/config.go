@@ -12,15 +12,15 @@ import (
 )
 
 type Config struct {
-	Bind            string        `default:"0.0.0.0:8080" env:"BIND" yaml:"bind"`
+	Bind            string        `default:"0.0.0.0:8080"       env:"BIND"      yaml:"bind"`
 	Backend         *Backend      `yaml:"backend"`
-	EnableIPv6      bool          `default:"false" yaml:"ipv6"`
+	EnableIPv6      bool          `default:"false"              yaml:"ipv6"`
 	HTTPErrorCode   int           `yaml:"httpErrorCode"`
 	Selector        LabelSelector `yaml:"selector,omitempty"`
 	Timeout         time.Duration `yaml:"timeout"`
 	TimeoutShutdown time.Duration `yaml:"timeoutShutdown"`
 	Concurrency     int           `yaml:"concurrency"`
-	Metadata        bool          `default:"true" yaml:"metadata"`
+	Metadata        bool          `default:"true"               yaml:"metadata"`
 	MaxConnDuration time.Duration `yaml:"maxConnectionDuration"`
 	MaxConnsPerHost int           `yaml:"maxConnectionsPerHost"`
 	Tenant          *TenantConfig `yaml:"tenant"`
@@ -38,12 +38,12 @@ type Backend struct {
 
 type TenantConfig struct {
 	Labels                []string `yaml:"labels"`
-	SetNamespaceAsDefault bool     `default:"false" yaml:"setNamespaceAsDefault"`
+	SetNamespaceAsDefault bool     `default:"false"         yaml:"setNamespaceAsDefault"`
 	Prefix                string   `yaml:"prefix"`
-	PrefixPreferSource    bool     `default:"false" yaml:"prefixPreferSource"`
-	LabelRemove           bool     `default:"false" yaml:"labelRemove"`
+	PrefixPreferSource    bool     `default:"false"         yaml:"prefixPreferSource"`
+	LabelRemove           bool     `default:"false"         yaml:"labelRemove"`
 	Header                string   `default:"X-Scope-OrgID" yaml:"header"`
-	SetHeader             bool     `default:"true" yaml:"setHeader"`
+	SetHeader             bool     `default:"true"          yaml:"setHeader"`
 	TenantLabel           string   `yaml:"tenantLabel"`
 
 	Default   string `yaml:"default"`

@@ -16,7 +16,7 @@ const (
 	AnnotationOrganisationName = "observe.addons.projectcapsule.dev/org"
 
 	// Annotation on Namespace.
-	// Add additional labels with attached value for the given namespace
+	// Add additional labels with attached value for the given namespace.
 	AnnotationLabelName = "label.observe.addons.projectcapsule.dev/"
 )
 
@@ -27,7 +27,7 @@ func NamespaceOrgName(namespace *corev1.Namespace) (name string) {
 	return namespace.Annotations[AnnotationOrganisationName]
 }
 
-// Get Additional Labels from Annotations
+// Get Additional Labels from Annotations.
 func GetAdditionalAnnotations(namespace *corev1.Namespace) map[string]string {
 	result := make(map[string]string)
 
