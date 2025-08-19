@@ -1,0 +1,44 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: tempo-distributed
+  namespace: flux-system
+spec:
+  interval: 24h0m0s
+  url: https://grafana.github.io/helm-charts
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: tempo-distributed
+  namespace: flux-system
+spec:
+  serviceAccountName: kustomize-controller
+  interval: 15m
+  timeout: 10m
+  targetNamespace: monitoring-system
+  releaseName: "tempo-distributed"
+  chart:
+    spec:
+      chart: tempo-distributed
+      version: "1.28.0"
+      sourceRef:
+        kind: HelmRepository
+        name: tempo-distributed
+      interval: 24h
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      remediateLastFailure: true
+      retries: -1
+  driftDetection:
+    mode: enabled
+  values:
+    global:
+      dnsService: "kube-dns"
+      dnsNamespace: "kube-system"
+    ingester:
+      replicas: 1

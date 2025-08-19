@@ -40,7 +40,7 @@ func process(processor *handler.Handler, req *fh.Request) (map[string][]byte, er
 		return nil, errors.New("no streams found in the request")
 	}
 
-	m, err := createTenantRequests(processor, wrReqIn)
+	m, err := createTenantRequests(processor, req, wrReqIn)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func marshal(wr *logproto.PushRequest) (bufOut []byte, err error) {
 	return snappy.Encode(nil, b), nil
 }
 
-func createTenantRequests(h *handler.Handler, req *logproto.PushRequest) (r map[string][]byte, err error) {
+func createTenantRequests(h *handler.Handler, req *fh.Request, pr *logproto.PushRequest) (r map[string][]byte, err error) {
 	m := sync.Map{}
 
 	var (
@@ -84,13 +84,13 @@ func createTenantRequests(h *handler.Handler, req *logproto.PushRequest) (r map[
 		firstErr error
 	)
 
-	for _, stream := range req.Streams {
+	for _, stream := range pr.Streams {
 		wg.Add(1)
 
 		go func(stream logproto.Stream) {
 			defer wg.Done()
 
-			tenant, err := processStreamRequest(h, &stream)
+			tenant, err := processStreamRequest(h, req, &stream)
 			if err != nil {
 				errMutex.Lock()
 				if firstErr == nil {
@@ -107,14 +107,14 @@ func createTenantRequests(h *handler.Handler, req *logproto.PushRequest) (r map[
 
 			v, _ := m.LoadOrStore(tenant, &logproto.PushRequest{Streams: []logproto.Stream{}})
 
-			req, ok := v.(*logproto.PushRequest)
+			pr, ok := v.(*logproto.PushRequest)
 			if !ok {
 				h.Log.Error(fmt.Errorf("expected *logproto.PushRequest, got %T", v), "Unable to marshal tenant request")
 
 				return
 			}
 
-			req.Streams = append(req.Streams, stream)
+			pr.Streams = append(pr.Streams, stream)
 		}(stream)
 	}
 
@@ -156,17 +156,15 @@ func createTenantRequests(h *handler.Handler, req *logproto.PushRequest) (r map[
 	return r, nil
 }
 
-func processStreamRequest(processor *handler.Handler, stream *logproto.Stream) (tenant string, err error) {
+func processStreamRequest(processor *handler.Handler, req *fh.Request, stream *logproto.Stream) (tenant string, err error) {
 	var (
 		namespace string
 		idx       int
 	)
 
-	processor.Log.V(6).Info("processing", "stream", stream)
-
 	var streamLabels labels.Labels
 
-	if streamLabels, err = parser.ParseMetric(stream.Labels); err != nil {
+	if streamLabels, err = parseStreamLabels(stream.Labels); err != nil {
 		return "", err
 	}
 
@@ -176,22 +174,70 @@ func processStreamRequest(processor *handler.Handler, stream *logproto.Stream) (
 				namespace = streamLabels.Get(configuredLabel)
 				idx = i
 
-				processor.Log.Info("found", "label", configuredLabel, "value", namespace, "index", idx)
+				processor.Log.V(5).Info("found", "label", configuredLabel, "value", namespace, "index", idx)
 
 				break
 			}
 		}
 	}
 
-	tenant = processor.Store.GetOrg(namespace)
-
-	if tenant == "" {
+	mapping := processor.Store.GetOrg(namespace)
+	if mapping == nil {
 		if processor.Config.Tenant.Default == "" {
-			return "", fmt.Errorf("label(s): {'%s'} not found", strings.Join(processor.Config.Tenant.Labels, "','"))
+			return "", fmt.Errorf("no tenant assigned for %s: labels {'%s'} not found and no defaulting defined", namespace, strings.Join(processor.Config.Tenant.Labels, "','"))
 		}
 
-		return processor.Config.Tenant.Default, nil
+		tenant = processor.Config.Tenant.Default
+	} else {
+		// Add Additional Labels
+		if mapping.Labels != nil {
+			for l, k := range mapping.Labels {
+				streamLabels = append(streamLabels, labels.Label{
+					Name:  l,
+					Value: k,
+				})
+			}
+		}
+
+		tenant = mapping.Organisation
 	}
 
-	return
+	tenantPrefix := processor.Config.Tenant.Prefix
+
+	if processor.Config.Tenant.PrefixPreferSource {
+		sourceTenantPrefix := string(req.Header.Peek(processor.Config.Tenant.Header))
+		if sourceTenantPrefix != "" {
+			tenantPrefix = sourceTenantPrefix + "-"
+		}
+	}
+
+	tenant = tenantPrefix + tenant
+
+	// Add Tenant as Label
+	if processor.Config.Tenant.TenantLabel != "" {
+		streamLabels = append(streamLabels, labels.Label{
+			Name:  processor.Config.Tenant.TenantLabel,
+			Value: tenant,
+		})
+	}
+
+	// Handling Label Removing
+	if idx != 0 && processor.Config.Tenant.LabelRemove {
+		// Order is important. See:
+		// https://github.com/thanos-io/thanos/issues/6452
+		// https://github.com/prometheus/prometheus/issues/11505
+		streamLabels = removeOrdered(streamLabels, idx)
+	}
+
+	stream.Labels = streamLabels.String()
+
+	return tenant, err
+}
+
+func removeOrdered(slice []labels.Label, s int) []labels.Label {
+	return append(slice[:s], slice[s+1:]...)
+}
+
+func parseStreamLabels(labels string) (labels.Labels, error) {
+	return parser.ParseMetric(labels)
 }

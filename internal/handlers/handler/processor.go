@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/golang/snappy"
 	"github.com/google/uuid"
 	me "github.com/hashicorp/go-multierror"
 	fh "github.com/valyala/fasthttp"
@@ -170,18 +171,9 @@ func (p *Handler) handle(ctx *fh.RequestCtx) {
 
 	reqID, _ := uuid.NewRandom()
 
-	tenantPrefix := p.Config.Tenant.Prefix
-
-	if p.Config.Tenant.PrefixPreferSource {
-		sourceTenantPrefix := string(ctx.Request.Header.Peek(p.Config.Tenant.Header))
-		if sourceTenantPrefix != "" {
-			tenantPrefix = sourceTenantPrefix + "-"
-		}
-	}
-
 	var errs *me.Error
 
-	results := p.dispatch(ctx.RemoteAddr(), reqID, tenantPrefix, data)
+	results := p.dispatch(ctx.RemoteAddr(), reqID, data)
 
 	code, body := fh.StatusOK, []byte("Ok")
 
@@ -204,7 +196,7 @@ func (p *Handler) handle(ctx *fh.RequestCtx) {
 		}
 
 		if r.Code < 200 || r.Code >= 300 {
-			p.Log.Info("handling request",
+			p.Log.V(5).Info("handling request",
 				"src", ctx.RemoteAddr(),
 				"req_id", reqID,
 				"code", r.Code,
@@ -234,7 +226,6 @@ out:
 func (p *Handler) dispatch(
 	clientIP net.Addr,
 	reqID uuid.UUID,
-	tenantPrefix string,
 	m map[string][]byte,
 ) (res []DispatchResult) {
 	var wg sync.WaitGroup
@@ -251,7 +242,7 @@ func (p *Handler) dispatch(
 
 			r := p.send(clientIP, reqID, tenant, buf)
 			res[idx] = r
-		}(i, tenantPrefix+tenant, buf)
+		}(i, tenant, buf)
 
 		i++
 	}
@@ -284,12 +275,13 @@ func (p *Handler) send(
 		p.headerFunc(clientIP, reqID, tenant, req)
 	}
 
-	// Relevant Headers
 	req.Header.Set("Content-Encoding", "snappy")
 	req.Header.Set("Content-Type", "application/x-protobuf")
-	req.Header.Set(p.Config.Tenant.Header, tenant)
 
-	// Backend URL
+	if p.Config.Tenant.SetHeader {
+		req.Header.Set(p.Config.Tenant.Header, tenant)
+	}
+
 	req.SetRequestURI(p.Config.Backend.URL)
 
 	// Authentication Headers
@@ -298,7 +290,7 @@ func (p *Handler) send(
 	}
 
 	req.Header.SetMethod(fh.MethodPost)
-	req.SetBody(body)
+	req.SetBody(snappy.Encode(nil, body))
 
 	if err := p.Cli.DoTimeout(req, resp, p.Config.Timeout); err != nil {
 		return DispatchResult{Error: err}

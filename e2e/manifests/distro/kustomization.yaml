@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ns.yaml
+  - prometheus.flux.yaml
+  - grafana.flux.yaml
+  - loki.flux.yaml
+  - mimir.flux.yaml
+  - minio.flux.yaml
+  - pyroscope.flux.yaml
+  - tempo.flux.yaml

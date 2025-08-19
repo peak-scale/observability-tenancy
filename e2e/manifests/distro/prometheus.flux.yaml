@@ -1,0 +1,78 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: kube-prometheus-stack
+  namespace: flux-system
+spec:
+  interval: 24h0m0s
+  url: https://prometheus-community.github.io/helm-charts
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kube-prometheus-stack
+  namespace: flux-system
+spec:
+  serviceAccountName: kustomize-controller
+  interval: 15m
+  timeout: 10m
+  targetNamespace: monitoring-system
+  releaseName: "kube-prometheus-stack"
+  chart:
+    spec:
+      chart: kube-prometheus-stack
+      version: "61.3.2"
+      sourceRef:
+        kind: HelmRepository
+        name: kube-prometheus-stack
+      interval: 24h
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      remediateLastFailure: true
+      retries: -1
+  driftDetection:
+    mode: enabled
+  values:
+    crds:
+      enabled: true
+    grafana:
+      enabled: false
+      forceDeployDashboards: true
+      sidecar:
+        dashboards:
+          labels:
+            grafana_dashboard: "1"
+          annotations:
+            k8s-sidecar-target-directory: "/tmp/dashboards/Cluster"
+    prometheusOperator:
+      enabled: false
+    prometheus:
+      enabled: false
+    alertmanager:
+      enabled: false
+    kubeStateMetrics:
+      enabled: true
+    kube-state-metrics:
+      securityContext:
+        runAsGroup: 65534
+        runAsUser: 65534
+        runAsNonRoot: true
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containerSecurityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+      resources:
+        limits:
+          cpu: 300m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi

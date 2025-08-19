@@ -1,0 +1,143 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: mimir-distributed
+  namespace: flux-system
+spec:
+  interval: 24h0m0s
+  url: https://grafana.github.io/helm-charts
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: mimir-distributed
+  namespace: flux-system
+spec:
+  serviceAccountName: kustomize-controller
+  interval: 15m
+  timeout: 10m
+  targetNamespace: monitoring-system
+  releaseName: "mimir-distributed"
+  chart:
+    spec:
+      chart: mimir-distributed
+      version: "5.5.0-weekly.300"
+      sourceRef:
+        kind: HelmRepository
+        name: mimir-distributed
+      interval: 24h
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      remediateLastFailure: true
+      retries: -1
+  driftDetection:
+    mode: enabled
+  values:
+    global:
+      dnsService: "kube-dns"
+      dnsNamespace: "kube-system"
+      clusterLabelOverride: "kind"
+    minio:
+      enabled: false
+    gateway:
+      enabledNonEnterprise: true
+      ingress:
+        enabled: false
+    distributor:
+      replicas: 1
+    querier:
+      replicas: 1
+    ruler_querier:
+      replicas: 1
+    alertmanager:
+      replicas: 1
+      statefulSet:
+        enabled: true
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: target
+                      operator: In
+                      values:
+                        - alertmanager
+                topologyKey: "kubernetes.io/hostname"
+    ingester:
+      replicas: 2
+      zoneAwareReplication:
+        enabled: false
+      statefulSet:
+        enabled: true
+      persistentVolume:
+        size: 2Gi
+    store_gateway:
+      zoneAwareReplication:
+        enabled: false
+      persistentVolume:
+        size: 2Gi
+    mimir:
+      # Reference: https://grafana.com/docs/mimir/latest/references/configuration-parameters/
+      structuredConfig:
+        multitenancy_enabled: true
+        tenant_federation:
+          enabled: true
+        common:
+          storage:
+            backend: s3
+            s3:
+              bucket_name: "mimir-tsdb"
+              region: us-east-1
+              endpoint: minio.monitoring-system.svc.cluster.local:9000
+              access_key_id: "observability" # This is a secret injected via an environment variable
+              secret_access_key: "observability" # This is a secret injected via an environment variable
+              insecure: true
+        limits:
+          out_of_order_time_window: 3h
+          max_global_series_per_user: 2000000
+          accept_ha_samples: true
+          max_label_names_per_series: 40
+          # Delete from storage metrics data older than 90 Days
+          compactor_blocks_retention_period: 90d
+        alertmanager_storage:
+          backend: s3
+          s3:
+            bucket_name: alertmanager
+        ruler_storage:
+          backend: s3
+          s3:
+            bucket_name: mimir-ruler
+        blocks_storage:
+          bucket_store:
+            sync_dir: /data
+            ignore_deletion_mark_delay: 1h
+          backend: s3
+          s3:
+            bucket_name: mimir-tsdb
+          tsdb:
+            dir: /data
+            retention_period: 300m
+            close_idle_tsdb_timeout: 365m
+            wal_compression_enabled: true
+            flush_blocks_on_shutdown: true
+    metaMonitoring:
+      # Dashboard configuration for deploying Grafana dashboards for Mimir
+      dashboards:
+        # -- If enabled, Grafana dashboards are deployed
+        enabled: true
+        # -- Annotations to add to the Grafana dashboard ConfigMap
+        annotations:
+          k8s-sidecar-target-directory: /tmp/dashboards/Monitoring Stack
+        # -- Labels to add to the Grafana dashboard ConfigMap
+        labels:
+          grafana_dashboard: "1"
+      serviceMonitor:
+        enabled: true
+      prometheusRule:
+        enabled: false

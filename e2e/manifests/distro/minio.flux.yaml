@@ -1,0 +1,102 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: minio
+  namespace: flux-system
+spec:
+  serviceAccountName: kustomize-controller
+  interval: 10m
+  targetNamespace: monitoring-system
+  releaseName: "minio"
+  chart:
+    spec:
+      chart: minio
+      version: "12.8.12"
+      sourceRef:
+        kind: HelmRepository
+        name: bitnami
+      interval: 24h
+  driftDetection:
+    mode: "enabled"
+  install:
+    remediation:
+      retries: -1
+  upgrade:
+    remediation:
+      retries: -1
+  values:
+    mode: "standalone"
+    auth:
+      rootUser: "minio"
+    provisioning:
+      enabled: true
+      usersExistingSecrets:
+        - minio-users
+      buckets:
+        - name: migrations
+          options:
+            name: us-east-1
+        - name: chunks
+          options:
+            name: us-east-1
+        - name: loki-ruler
+          options:
+            name: us-east-1
+        - name: loki
+          options:
+            name: us-east-1
+        - name: admin
+          options:
+            name: us-east-1
+        - name: mimir-tsdb
+          options:
+            name: us-east-1
+        - name: mimir-ruler
+          options:
+            name: us-east-1
+        - name: alertmanager
+          options:
+            name: us-east-1
+        - name: grafana-pyroscope-data
+          options:
+            name: us-east-1
+      policies:
+        - name: observability
+          statements:
+            - effect: "Allow"
+              actions:
+                - "s3:DeleteObject"
+                - "s3:GetBucketLocation"
+                - "s3:GetObject"
+                - "s3:ListBucket"
+                - "s3:PutObject"
+              resources:
+                - "arn:aws:s3:::*"
+                - "arn:aws:s3:::*/*"
+    persistence:
+      enabled: true
+      size: 30Gi
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: bitnami
+  namespace: flux-system
+spec:
+  interval: 24h0m0s
+  url: https://charts.bitnami.com/bitnami
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: minio-users
+  namespace: monitoring-system
+type: Opaque
+stringData:
+  observability: |
+    username=observability
+    password=observability
+    disabled=false
+    policies=observability
+    setPolicies=false

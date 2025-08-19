@@ -4,9 +4,6 @@ backend:
   auth:
     username: foo
     password: bar
-# selector:
-#   matchLabels:
-#     test: me
 ipv6: false
 maxConnectionsPerHost: 64
 timeout: 10s
@@ -15,12 +12,12 @@ concurrency: 10
 metadata: false
 tenant:
   labels:
-    - tenant
-    - other_tenant
-  prefix: ""
+    - namespace
+    - target_namespace
+  prefix: "test-"
   prefixPreferSource: false
   labelRemove: true
   header: X-Scope-OrgID
-  default: "infra"
+  default: "default"
   acceptAll: false
   setNamespaceAsDefault: false

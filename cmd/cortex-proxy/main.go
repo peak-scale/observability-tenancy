@@ -98,7 +98,7 @@ func main() {
 	store := stores.NewNamespaceStore()
 	metricsRecorder := metrics.MustMakeRecorder("cortex")
 
-	tenants := &namespace.StoreController{
+	namespaces := &namespace.StoreController{
 		Client:  mgr.GetClient(),
 		Scheme:  mgr.GetScheme(),
 		Config:  cfg,
@@ -106,8 +106,13 @@ func main() {
 		Store:   store,
 	}
 
-	if err = tenants.Init(ctx, directClient); err != nil {
+	if err = namespaces.Init(ctx, directClient); err != nil {
 		setupLog.Error(err, "unable to initialize settings")
+		os.Exit(1)
+	}
+
+	if err = namespaces.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to set up namespace controller")
 		os.Exit(1)
 	}
 

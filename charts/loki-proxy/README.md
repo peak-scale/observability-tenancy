@@ -71,19 +71,22 @@ The following Values are available for this chart.
 | config.backend.auth.username | string | `""` | Username |
 | config.backend.url | string | `"http://loki-distributor.cortex.svc:8080/api/v1/push"` | Where to send the modified requests (Cortex) |
 | config.concurrency | int | `1000` | Max number of parallel incoming HTTP requests to handle |
+| config.httpErrorCode | int | `429` | HTTP error code to return when the request is rejected (backend unavailable, no tenant found, etc.). 429 indicates for most clients that the request was rejected and that it should be retried later. |
 | config.ipv6 | bool | `false` | Whether to enable querying for IPv6 records |
 | config.maxConnectionDuration | string | `"0s"` | Maximum duration to keep outgoing connections alive (to Cortex/Mimir) Useful for resetting L4 load-balancer state Use 0 to keep them indefinitely |
 | config.maxConnectionsPerHost | int | `64` | This parameter sets the limit for the count of outgoing concurrent connections to Cortex / Mimir. By default it's 64 and if all of these connections are busy you will get errors when pushing from Prometheus. If your `target` is a DNS name that resolves to several IPs then this will be a per-IP limit. |
 | config.metadata | bool | `false` | Whether to forward metrics metadata from Prometheus to Cortex Since metadata requests have no timeseries in them - we cannot divide them into tenants So the metadata requests will be sent to the default tenant only, if one is not defined - they will be dropped |
 | config.selector | object | `{}` | Specify which tenants should be selected for this proxy. Tenants not matching the labels are not considered by the controller. |
 | config.tenant.acceptAll | bool | `false` | Enable if you want all metrics from Prometheus to be accepted with a 204 HTTP code regardless of the response from Cortex. This can lose metrics if Cortex is throwing rejections. |
-| config.tenant.default | string | `"loki-default"` | Which tenant ID to use if the label is missing in any of the timeseries If this is not set or empty then the write request with missing tenant label will be rejected with HTTP code 400 |
+| config.tenant.default | string | `""` | Which tenant ID to use if the label is missing in any of the timeseries If this is not set or empty then the write request with missing tenant label will be rejected with HTTP code 400 |
 | config.tenant.header | string | `"X-Scope-OrgID"` | To which header to add the tenant ID |
 | config.tenant.labelRemove | bool | `false` | Whether to remove the tenant label from the request |
 | config.tenant.labels | list | `[]` | List of labels examined for tenant information. If set takes precedent over `label` |
 | config.tenant.prefix | string | `""` | Optional hard-coded prefix with delimeter for all tenant values. Delimeters allowed for use: https://grafana.com/docs/mimir/latest/configure/about-tenant-ids/ |
 | config.tenant.prefixPreferSource | bool | `false` | If true will use the tenant ID of the inbound request as the prefix of the new tenant id. Will be automatically suffixed with a `-` character. Example:   Prometheus forwards metrics with `X-Scope-OrgID: Prom-A` set in the inbound request.   This would result in the tenant prefix being set to `Prom-A-`. |
-| config.tenant.setNamespaceAsDefault | bool | `false` | If no tenant is defined via annotation, then use the namespace name as the tenant ID. |
+| config.tenant.setHeader | bool | `true` | Whether to set the HTTP header (Header above) with the tenant ID. If false, no header will be set. Useful when you just want to aggregate the tenant as label to the data set. |
+| config.tenant.setNamespaceAsDefault | bool | `false` | This has priority over the `default` tenant ID. |
+| config.tenant.tenantLabel | string | `""` | Set this value to add the evaluated tenant as label on the data set. If empty, no label is added |
 | config.timeout | string | `"10s"` | HTTP request timeout |
 | config.timeoutShutdown | string | `"10s"` | Timeout to wait on shutdown to allow load balancers detect that we're going away. During this period after the shutdown command the /alive endpoint will reply with HTTP 503. Set to 0s to disable. |
 

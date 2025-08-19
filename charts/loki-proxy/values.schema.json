@@ -76,6 +76,9 @@
                 "concurrency": {
                     "type": "integer"
                 },
+                "httpErrorCode": {
+                    "type": "integer"
+                },
                 "ipv6": {
                     "type": "boolean"
                 },
@@ -115,8 +118,14 @@
                         "prefixPreferSource": {
                             "type": "boolean"
                         },
+                        "setHeader": {
+                            "type": "boolean"
+                        },
                         "setNamespaceAsDefault": {
                             "type": "boolean"
+                        },
+                        "tenantLabel": {
+                            "type": "string"
                         }
                     }
                 },
