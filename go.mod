@@ -4,6 +4,7 @@ go 1.24.0
 
 require (
 	github.com/KimMachineGun/automemlimit v0.7.4
+	github.com/caarlos0/env/v11 v11.4.1
 	github.com/caarlos0/env/v8 v8.0.0
 	github.com/creasty/defaults v1.8.0
 	github.com/go-logr/logr v1.4.3
