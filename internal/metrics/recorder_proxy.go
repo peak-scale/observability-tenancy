@@ -7,6 +7,8 @@ import (
 	crtlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
+const tenantLabel = "tenant"
+
 type ProxyRecorder struct {
 	MetricTimeseriesBatchesReceived        prometheus.Counter
 	MetricTimeseriesBatchesReceivedBytes   prometheus.Histogram
@@ -48,7 +50,7 @@ func NewRecorder(proxyName string) *ProxyRecorder {
 				Name:      "timeseries_received_total",
 				Help:      "The total number of timeseries received.",
 			},
-			[]string{"tenant"},
+			[]string{tenantLabel},
 		),
 		MetricTimeseriesRequestDurationSeconds: prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
@@ -57,7 +59,7 @@ func NewRecorder(proxyName string) *ProxyRecorder {
 				Help:      "HTTP write request duration for tenant-specific timeseries in seconds, filtered by response code.",
 				Buckets:   []float64{0.5, 1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000, 60000, 1800000, 3600000},
 			},
-			[]string{"code", "tenant"},
+			[]string{"code", tenantLabel},
 		),
 		MetricTimeseriesRequestErrors: promauto.NewCounterVec(
 			prometheus.CounterOpts{
@@ -65,7 +67,7 @@ func NewRecorder(proxyName string) *ProxyRecorder {
 				Name:      "timeseries_request_errors_total",
 				Help:      "The total number of tenant-specific timeseries writes that yielded errors.",
 			},
-			[]string{"tenant"},
+			[]string{tenantLabel},
 		),
 		MetricTimeseriesRequests: promauto.NewCounterVec(
 			prometheus.CounterOpts{
@@ -73,7 +75,7 @@ func NewRecorder(proxyName string) *ProxyRecorder {
 				Name:      "timeseries_requests_total",
 				Help:      "The total number of tenant-specific timeseries writes.",
 			},
-			[]string{"tenant"},
+			[]string{tenantLabel},
 		),
 	}
 }
@@ -89,7 +91,7 @@ func (r *ProxyRecorder) Collectors() []prometheus.Collector {
 	}
 }
 
-// DeleteCondition deletes the condition metrics for the ref.
+// DeleteMetricsForNamespace removes metrics associated with the namespace.
 func (r *ProxyRecorder) DeleteMetricsForNamespace(ns *corev1.Namespace) {
 	r.MetricTimeseriesRequests.DeleteLabelValues(ns.Name)
 	r.MetricTimeseriesRequestDurationSeconds.DeleteLabelValues(ns.Name)

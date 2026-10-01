@@ -1,6 +1,6 @@
 package handler
 
-// Result after dispatching a request from a processor to the backend.
+// DispatchResult describes the result of forwarding a request to the backend.
 type DispatchResult struct {
 	Code     int
 	Duration float64

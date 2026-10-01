@@ -131,7 +131,7 @@ func createTenantRequests(h *handler.Handler, req *fh.Request, wr *prompb.WriteR
 
 	r = make(map[string][]byte)
 
-	m.Range(func(tenant, pushReq interface{}) bool {
+	m.Range(func(tenant, pushReq any) bool {
 		writeReq, ok := pushReq.(*prompb.WriteRequest)
 		if !ok {
 			h.Log.Error(fmt.Errorf("expected *prompb.WriteRequest, got %T", tenant), "Unable to marshal tenant request")

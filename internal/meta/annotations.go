@@ -11,23 +11,21 @@ import (
 )
 
 const (
-	// Annotation on Namespace.
-	// Change the organisation Header value, by default namespace name is used.
+	// AnnotationOrganisationName overrides the organisation header for a namespace.
 	AnnotationOrganisationName = "observe.addons.projectcapsule.dev/org"
 
-	// Annotation on Namespace.
-	// Add additional labels with attached value for the given namespace.
+	// AnnotationLabelName prefixes annotations that add labels to namespace traffic.
 	AnnotationLabelName = "label.observe.addons.projectcapsule.dev/"
 )
 
 var validLabelName = regexp.MustCompile(`^[a-zA-Z_:][a-zA-Z0-9_:]*$`)
 
-// Namespace Organisation association.
+// NamespaceOrgName returns the organisation associated with a namespace.
 func NamespaceOrgName(namespace *corev1.Namespace) (name string) {
 	return namespace.Annotations[AnnotationOrganisationName]
 }
 
-// Get Additional Labels from Annotations.
+// GetAdditionalAnnotations extracts additional labels from namespace annotations.
 func GetAdditionalAnnotations(namespace *corev1.Namespace) map[string]string {
 	result := make(map[string]string)
 

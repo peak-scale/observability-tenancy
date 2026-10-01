@@ -41,7 +41,7 @@ type Handler struct {
 	headerFunc func(clientIP net.Addr, reqID uuid.UUID, tenant string, req *fh.Request)
 }
 
-// Initialize a new Processor.
+// NewHandler initializes a proxy request processor.
 func NewHandler(
 	log logr.Logger,
 	c config.Config,

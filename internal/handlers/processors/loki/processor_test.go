@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/grafana/loki/v3/pkg/logproto"
+	"github.com/grafana/loki/pkg/push"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	fh "github.com/valyala/fasthttp"
@@ -158,11 +158,11 @@ var _ = Describe("Processor Forwarding (Loki)", func() {
 		By("settings default tenant", func() {
 
 			// Prepare a minimal prompb.WriteRequest.
-			wr := &logproto.PushRequest{
-				Streams: []logproto.Stream{
+			wr := &push.PushRequest{
+				Streams: []push.Stream{
 					{
 						Labels: "{app=\"pyroscope\", instance=\"observability-system/pyroscope-0:pyroscope\", job=\"observability-system/pyroscope\", namespace=\"observability-system\", pod=\"pyroscope-0\"}",
-						Entries: []logproto.Entry{
+						Entries: []push.Entry{
 							{Timestamp: time.Now(), Line: "test log"},
 						},
 					},
@@ -204,11 +204,11 @@ var _ = Describe("Processor Forwarding (Loki)", func() {
 		})
 
 		By("proxy correct tenant (solar)", func() {
-			wr := &logproto.PushRequest{
-				Streams: []logproto.Stream{
+			wr := &push.PushRequest{
+				Streams: []push.Stream{
 					{
 						Labels: "{app=\"pyroscope\", instance=\"observability-system/pyroscope-0:pyroscope\", job=\"observability-system/pyroscope\", namespace=\"solar\", pod=\"pyroscope-0\"}",
-						Entries: []logproto.Entry{
+						Entries: []push.Entry{
 							{Timestamp: time.Now(), Line: "test log"},
 						},
 					},
@@ -249,11 +249,11 @@ var _ = Describe("Processor Forwarding (Loki)", func() {
 		})
 
 		By("proxy correct tenant (wind)", func() {
-			wr := &logproto.PushRequest{
-				Streams: []logproto.Stream{
+			wr := &push.PushRequest{
+				Streams: []push.Stream{
 					{
 						Labels: "{app=\"pyroscope\", instance=\"observability-system/pyroscope-0:pyroscope\", job=\"observability-system/pyroscope\", namespace=\"wind\", pod=\"pyroscope-0\"}",
-						Entries: []logproto.Entry{
+						Entries: []push.Entry{
 							{Timestamp: time.Now(), Line: "test log"},
 						},
 					},
@@ -294,11 +294,11 @@ var _ = Describe("Processor Forwarding (Loki)", func() {
 		})
 
 		By("proxy correct tenant (oil)", func() {
-			wr := &logproto.PushRequest{
-				Streams: []logproto.Stream{
+			wr := &push.PushRequest{
+				Streams: []push.Stream{
 					{
 						Labels: "{app=\"pyroscope\", instance=\"observability-system/pyroscope-0:pyroscope\", job=\"observability-system/pyroscope\", target_namespace=\"green\", pod=\"pyroscope-0\"}",
-						Entries: []logproto.Entry{
+						Entries: []push.Entry{
 							{Timestamp: time.Now(), Line: "test log"},
 						},
 					},
@@ -339,11 +339,11 @@ var _ = Describe("Processor Forwarding (Loki)", func() {
 		})
 
 		By("default on no match", func() {
-			wr := &logproto.PushRequest{
-				Streams: []logproto.Stream{
+			wr := &push.PushRequest{
+				Streams: []push.Stream{
 					{
 						Labels: "{app=\"pyroscope\", instance=\"observability-system/pyroscope-0:pyroscope\", job=\"observability-system/pyroscope\", target_namespace=\"oil-prod\", pod=\"pyroscope-0\"}",
-						Entries: []logproto.Entry{
+						Entries: []push.Entry{
 							{Timestamp: time.Now(), Line: "test log"},
 						},
 					},
@@ -383,17 +383,17 @@ var _ = Describe("Processor Forwarding (Loki)", func() {
 			clearRequests()
 		})
 		By("sending two series for different tenants in a single request", func() {
-			wr := &logproto.PushRequest{
-				Streams: []logproto.Stream{
+			wr := &push.PushRequest{
+				Streams: []push.Stream{
 					{
 						Labels: `{app="pyroscope", instance="observability-system/pyroscope-0:pyroscope", job="observability-system/pyroscope", target_namespace="oil-prod", pod="pyroscope-0"}`,
-						Entries: []logproto.Entry{
+						Entries: []push.Entry{
 							{Timestamp: time.Now(), Line: "test log"},
 						},
 					},
 					{
 						Labels: `{app="pyroscope", instance="observability-system/pyroscope-0:pyroscope", job="observability-system/pyroscope", target_namespace="wind", pod="pyroscope-0"}`,
-						Entries: []logproto.Entry{
+						Entries: []push.Entry{
 							{Timestamp: time.Now(), Line: "test log"},
 						},
 					},

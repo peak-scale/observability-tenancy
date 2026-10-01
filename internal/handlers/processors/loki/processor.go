@@ -8,7 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/snappy"
-	"github.com/grafana/loki/v3/pkg/logproto"
+	"github.com/grafana/loki/pkg/push"
 	"github.com/pkg/errors"
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/promql/parser"
@@ -48,13 +48,13 @@ func process(processor *handler.Handler, req *fh.Request) (map[string][]byte, er
 	return m, nil
 }
 
-func unmarshal(b []byte) (*logproto.PushRequest, error) {
+func unmarshal(b []byte) (*push.PushRequest, error) {
 	decoded, err := snappy.Decode(nil, b)
 	if err != nil {
 		return nil, errors.Wrap(err, "Unable to unpack Snappy")
 	}
 
-	req := &logproto.PushRequest{}
+	req := &push.PushRequest{}
 	if err := proto.Unmarshal(decoded, req); err != nil {
 		return nil, errors.Wrap(err, "Unable to unmarshal protobuf")
 	}
@@ -63,7 +63,7 @@ func unmarshal(b []byte) (*logproto.PushRequest, error) {
 }
 
 //nolint:unused
-func marshal(wr *logproto.PushRequest) (bufOut []byte, err error) {
+func marshal(wr *push.PushRequest) (bufOut []byte, err error) {
 	b := make([]byte, wr.Size())
 
 	// Marshal to Protobuf
@@ -75,7 +75,7 @@ func marshal(wr *logproto.PushRequest) (bufOut []byte, err error) {
 	return snappy.Encode(nil, b), nil
 }
 
-func createTenantRequests(h *handler.Handler, req *fh.Request, pr *logproto.PushRequest) (r map[string][]byte, err error) {
+func createTenantRequests(h *handler.Handler, req *fh.Request, pr *push.PushRequest) (r map[string][]byte, err error) {
 	m := sync.Map{}
 
 	var (
@@ -87,7 +87,7 @@ func createTenantRequests(h *handler.Handler, req *fh.Request, pr *logproto.Push
 	for _, stream := range pr.Streams {
 		wg.Add(1)
 
-		go func(stream logproto.Stream) {
+		go func(stream push.Stream) {
 			defer wg.Done()
 
 			tenant, err := processStreamRequest(h, req, &stream)
@@ -107,11 +107,11 @@ func createTenantRequests(h *handler.Handler, req *fh.Request, pr *logproto.Push
 			h.Metrics.MetricTimeseriesReceived.WithLabelValues(tenant).Inc()
 			h.Metrics.MetricTimeseriesReceived.WithLabelValues("").Inc()
 
-			v, _ := m.LoadOrStore(tenant, &logproto.PushRequest{Streams: []logproto.Stream{}})
+			v, _ := m.LoadOrStore(tenant, &push.PushRequest{Streams: []push.Stream{}})
 
-			pr, ok := v.(*logproto.PushRequest)
+			pr, ok := v.(*push.PushRequest)
 			if !ok {
-				h.Log.Error(fmt.Errorf("expected *logproto.PushRequest, got %T", v), "Unable to marshal tenant request")
+				h.Log.Error(fmt.Errorf("expected *push.PushRequest, got %T", v), "Unable to marshal tenant request")
 
 				return
 			}
@@ -128,10 +128,10 @@ func createTenantRequests(h *handler.Handler, req *fh.Request, pr *logproto.Push
 
 	r = make(map[string][]byte)
 
-	m.Range(func(tenant, pushReq interface{}) bool {
-		writeReq, ok := pushReq.(*logproto.PushRequest)
+	m.Range(func(tenant, pushReq any) bool {
+		writeReq, ok := pushReq.(*push.PushRequest)
 		if !ok {
-			h.Log.Error(fmt.Errorf("expected *logproto.PushRequest, got %T", tenant), "Unable to marshal tenant request")
+			h.Log.Error(fmt.Errorf("expected *push.PushRequest, got %T", tenant), "Unable to marshal tenant request")
 
 			return true
 		}
@@ -158,10 +158,10 @@ func createTenantRequests(h *handler.Handler, req *fh.Request, pr *logproto.Push
 	return r, nil
 }
 
-func processStreamRequest(processor *handler.Handler, req *fh.Request, stream *logproto.Stream) (tenant string, err error) {
+func processStreamRequest(processor *handler.Handler, req *fh.Request, stream *push.Stream) (tenant string, err error) {
 	var (
-		namespace string
-		idx       int
+		namespace      string
+		namespaceLabel string
 	)
 
 	var streamLabels labels.Labels
@@ -170,18 +170,20 @@ func processStreamRequest(processor *handler.Handler, req *fh.Request, stream *l
 		return "", err
 	}
 
-	for i, l := range streamLabels {
+	streamLabels.Range(func(l labels.Label) {
 		for _, configuredLabel := range processor.Config.Tenant.Labels {
 			if l.Name == configuredLabel {
 				namespace = streamLabels.Get(configuredLabel)
-				idx = i
+				namespaceLabel = configuredLabel
 
-				processor.Log.V(5).Info("found", "label", configuredLabel, "value", namespace, "index", idx)
+				processor.Log.V(5).Info("found", "label", configuredLabel, "value", namespace)
 
 				break
 			}
 		}
-	}
+	})
+
+	labelBuilder := labels.NewBuilder(streamLabels)
 
 	mapping := processor.Store.GetOrg(namespace)
 	if mapping == nil {
@@ -194,10 +196,7 @@ func processStreamRequest(processor *handler.Handler, req *fh.Request, stream *l
 		// Add Additional Labels
 		if mapping.Labels != nil {
 			for l, k := range mapping.Labels {
-				streamLabels = append(streamLabels, labels.Label{
-					Name:  l,
-					Value: k,
-				})
+				labelBuilder.Set(l, k)
 			}
 		}
 
@@ -217,29 +216,22 @@ func processStreamRequest(processor *handler.Handler, req *fh.Request, stream *l
 
 	// Add Tenant as Label
 	if processor.Config.Tenant.TenantLabel != "" {
-		streamLabels = append(streamLabels, labels.Label{
-			Name:  processor.Config.Tenant.TenantLabel,
-			Value: tenant,
-		})
+		labelBuilder.Set(processor.Config.Tenant.TenantLabel, tenant)
 	}
 
 	// Handling Label Removing
-	if idx != 0 && processor.Config.Tenant.LabelRemove {
+	if namespaceLabel != "" && processor.Config.Tenant.LabelRemove {
 		// Order is important. See:
 		// https://github.com/thanos-io/thanos/issues/6452
 		// https://github.com/prometheus/prometheus/issues/11505
-		streamLabels = removeOrdered(streamLabels, idx)
+		labelBuilder.Del(namespaceLabel)
 	}
 
-	stream.Labels = streamLabels.String()
+	stream.Labels = labelBuilder.Labels().String()
 
 	return tenant, err
 }
 
-func removeOrdered(slice []labels.Label, s int) []labels.Label {
-	return append(slice[:s], slice[s+1:]...)
-}
-
 func parseStreamLabels(labels string) (labels.Labels, error) {
-	return parser.ParseMetric(labels)
+	return parser.NewParser(parser.Options{}).ParseMetric(labels)
 }
