@@ -62,10 +62,8 @@ func (r *StoreController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	origin := &corev1.Namespace{}
 	if err := r.Get(ctx, req.NamespacedName, origin); err != nil {
 		r.lifecycle(&corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      req.Name,
-				Namespace: req.Namespace,
-			},
+			Name:      req.Name,
+			Namespace: req.Namespace,
 		})
 
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -76,7 +74,7 @@ func (r *StoreController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	return ctrl.Result{}, nil
 }
 
-// First execttion of the controller to load the settings (without manager cache).
+// Init loads the initial namespace settings without using the manager cache.
 func (r *StoreController) Init(ctx context.Context, c client.Client) (err error) {
 	tnts := &corev1.NamespaceList{}
 
@@ -105,10 +103,8 @@ func (r *StoreController) Init(ctx context.Context, c client.Client) (err error)
 
 func (r *StoreController) lifecycle(ns *corev1.Namespace) {
 	r.Store.Delete(&corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      ns.Name,
-			Namespace: ns.Namespace,
-		},
+		Name:      ns.Name,
+		Namespace: ns.Namespace,
 	})
 
 	r.Metrics.DeleteMetricsForNamespace(ns)

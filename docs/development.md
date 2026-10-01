@@ -1,5 +1,10 @@
 # Development
 
+Use Go 1.27.1 or newer within the Go 1.27 series. The module declares Go 1.27
+and selects the Go 1.27.1 toolchain automatically when needed.
+Makefile tools are pinned and installed under `bin/`; changing a version pin
+replaces an existing binary on the next invocation of its target.
+
 Getting started locally is pretty easy. You can execute:
 
 ```shell
@@ -37,11 +42,23 @@ export KUBECONFIG="/tmp/observability-addon"
 
 When you are done with the development run the following commands.
 
-For Liniting
+For linting:
 
 ```shell
 make golint
 ```
+
+To apply formatting and available linter fixes:
+
+```shell
+make golint-fix
+```
+
+The dependency updates keep `k8s.io/kube-openapi` at the revision used by
+Kubernetes v0.37.1. Newer revisions use `structured-merge-diff/v7`, which is
+incompatible with that Kubernetes release. The transitive `github.com/google/cel-go`
+dependency remains on v0.31.0 because v0.32.0 moved to `cel.dev/cel-go`, while
+Capsule still imports the former module path.
 
 For Unit-Testing
 

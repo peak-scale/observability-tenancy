@@ -20,7 +20,7 @@ LOKI_IMG_BASE   ?= $(REPOSITORY)/loki-proxy
 LOKI_IMG        ?= $(LOKI_IMG_BASE):$(VERSION)
 LOKI_FULL_IMG   ?= $(REGISTRY)/$(LOKI_IMG_BASE)
 
-KIND_K8S_VERSION ?= "v1.33.0"
+KIND_K8S_VERSION ?= "v1.37.0"
 KIND_K8S_NAME    ?= "observability-addon"
 
 ## Tool Binaries
@@ -42,24 +42,26 @@ endif
 golint: golangci-lint
 	$(GOLANGCI_LINT) run -c .golangci.yaml
 
-.PHONY: golint
+.PHONY: golint-fix
 golint-fix: golangci-lint
+	$(GOLANGCI_LINT) fmt -c .golangci.yaml
 	$(GOLANGCI_LINT) run -c .golangci.yaml --fix
 
 all: manager
 
 # Run tests
 .PHONY: test
-test: test-clean  test-clean
+test: test-clean
 	@GO111MODULE=on go test -v $(shell go list ./... | grep -v "e2e") -coverprofile coverage.out
 
 .PHONY: test-clean
 test-clean: ## Clean tests cache
 	@go clean -testcache
 
-# Build manager binary
-manager: generate golint
-	go build -o bin/manager
+# Build the proxy binaries.
+.PHONY: manager
+manager: golint
+	go build -o $(LOCALBIN)/ ./cmd/...
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run:
@@ -239,65 +241,75 @@ $(LOCALBIN):
 # -- Helm Plugins
 ####################
 
-HELM_SCHEMA_VERSION   := ""
+HELM_SCHEMA_VERSION   := v2.6.0
+HELM_SCHEMA_LOOKUP    := losisin/helm-values-schema-json
+# Helm 4 requires opting out of verification for plugins installed from Git.
+HELM_SCHEMA_INSTALL_FLAGS = $(shell $(HELM) version --short | awk '/^v4\./ {print "--verify=false"}')
+.PHONY: helm-plugin-schema
 helm-plugin-schema:
-	@$(HELM) plugin install https://github.com/losisin/helm-values-schema-json.git --version $(HELM_SCHEMA_VERSION) || true
+	@set -e; \
+	if $(HELM) plugin list | awk '$$1 == "schema" {print $$2}' | grep -Fqx '$(patsubst v%,%,$(HELM_SCHEMA_VERSION))'; then \
+		exit 0; \
+	fi; \
+	if $(HELM) plugin list | awk 'NR > 1 {print $$1}' | grep -Fqx schema; then \
+		$(HELM) plugin uninstall schema; \
+	fi; \
+	$(HELM) plugin install https://github.com/$(HELM_SCHEMA_LOOKUP).git --version $(HELM_SCHEMA_VERSION) $(HELM_SCHEMA_INSTALL_FLAGS)
 
 HELM_DOCS         := $(LOCALBIN)/helm-docs
-HELM_DOCS_VERSION := v1.14.1
+HELM_DOCS_VERSION := v1.14.2
 HELM_DOCS_LOOKUP  := norwoodj/helm-docs
 helm-doc:
-	@test -s $(HELM_DOCS) || \
-	$(call go-install-tool,$(HELM_DOCS),github.com/$(HELM_DOCS_LOOKUP)/cmd/helm-docs@$(HELM_DOCS_VERSION))
+	@$(call go-install-tool,$(HELM_DOCS),github.com/$(HELM_DOCS_LOOKUP)/cmd/helm-docs@$(HELM_DOCS_VERSION))
 
 ####################
 # -- Tools
 ####################
 GINKGO := $(LOCALBIN)/ginkgo
+GINKGO_VERSION := v2.33.0
+GINKGO_LOOKUP := onsi/ginkgo
 ginkgo:
-	$(call go-install-tool,$(GINKGO),github.com/onsi/ginkgo/v2/ginkgo)
+	@$(call go-install-tool,$(GINKGO),github.com/$(GINKGO_LOOKUP)/v2/ginkgo@$(GINKGO_VERSION))
 
 CT         := $(LOCALBIN)/ct
-CT_VERSION := v3.13.0
+CT_VERSION := v3.14.0
 CT_LOOKUP  := helm/chart-testing
 ct:
-	@test -s $(CT) && $(CT) version | grep -q $(CT_VERSION) || \
-	$(call go-install-tool,$(CT),github.com/$(CT_LOOKUP)/v3/ct@$(CT_VERSION))
+	@$(call go-install-tool,$(CT),github.com/$(CT_LOOKUP)/v3/ct@$(CT_VERSION))
 
 KIND         := $(LOCALBIN)/kind
-KIND_VERSION := v0.29.0
+KIND_VERSION := v0.33.0
 KIND_LOOKUP  := kubernetes-sigs/kind
 kind:
-	@test -s $(KIND) && $(KIND) --version | grep -q $(KIND_VERSION) || \
-	$(call go-install-tool,$(KIND),sigs.k8s.io/kind@$(KIND_VERSION))
+	@$(call go-install-tool,$(KIND),sigs.k8s.io/kind@$(KIND_VERSION))
 
 KO           := $(LOCALBIN)/ko
-KO_VERSION   := v0.18.0
-KO_LOOKUP    := google/ko
+KO_VERSION   := v0.19.1
+KO_LOOKUP    := ko-build/ko
 ko:
-	@test -s $(KO) && $(KO) -h | grep -q $(KO_VERSION) || \
-	$(call go-install-tool,$(KO),github.com/$(KO_LOOKUP)@$(KO_VERSION))
+	@$(call go-install-tool,$(KO),github.com/google/ko@$(KO_VERSION))
 
 NWA           := $(LOCALBIN)/nwa
-NWA_VERSION   := v0.7.5
+NWA_VERSION   := v0.8.0
 NWA_LOOKUP    := B1NARY-GR0UP/nwa
 nwa:
-	@test -s $(NWA) && $(NWA) -h | grep -q $(NWA_VERSION) || \
-	$(call go-install-tool,$(NWA),github.com/$(NWA_LOOKUP)@$(NWA_VERSION))
+	@$(call go-install-tool,$(NWA),github.com/$(NWA_LOOKUP)@$(NWA_VERSION))
 
 
 GOLANGCI_LINT          := $(LOCALBIN)/golangci-lint
-GOLANGCI_LINT_VERSION  := v2.4.0
+GOLANGCI_LINT_VERSION  := v2.14.0
 GOLANGCI_LINT_LOOKUP   := golangci/golangci-lint
 golangci-lint: ## Download golangci-lint locally if necessary.
-	@test -s $(GOLANGCI_LINT) && $(GOLANGCI_LINT) -h | grep -q $(GOLANGCI_LINT_VERSION) || \
-	$(call go-install-tool,$(GOLANGCI_LINT),github.com/$(GOLANGCI_LINT_LOOKUP)/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION))
+	@$(call go-install-tool,$(GOLANGCI_LINT),github.com/$(GOLANGCI_LINT_LOOKUP)/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION))
+
+.PHONY: helm-doc ginkgo ct kind ko nwa golangci-lint
 
 # go-install-tool will 'go install' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 define go-install-tool
-[ -f $(1) ] || { \
+test -x $(1) && go version -m $(1) | awk '$$1 == "mod" {print $$3}' | grep -Fqx '$(lastword $(subst @, ,$(2)))' || { \
     set -e ;\
+    mkdir -p $(LOCALBIN) ;\
     GOBIN=$(LOCALBIN) go install $(2) ;\
 }
 endef

@@ -4,11 +4,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/caarlos0/env/v8"
+	"github.com/caarlos0/env/v11"
 	"github.com/creasty/defaults"
 	"github.com/pkg/errors"
 	fhu "github.com/valyala/fasthttp/fasthttputil"
-	"gopkg.in/yaml.v2"
+	"go.yaml.in/yaml/v2"
 )
 
 type Config struct {

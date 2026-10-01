@@ -8,10 +8,12 @@ linters:
     - depguard
     - err113
     - exhaustruct
+    - exhaustruct_v5
     - funlen
     - gochecknoglobals
     - gochecknoinits
     - gomoddirectives
+    - gomodguard # Replaced by gomodguard_v2, enabled by default: all.
     - ireturn
     - lll
     - mnd
@@ -25,6 +27,7 @@ linters:
     - unparam
     - varnamelen
     - wrapcheck
+    - wsl # Replaced by wsl_v5, enabled by default: all.
   settings:
     cyclop:
       max-complexity: 27
