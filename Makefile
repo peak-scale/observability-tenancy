@@ -20,7 +20,7 @@ LOKI_IMG_BASE   ?= $(REPOSITORY)/loki-proxy
 LOKI_IMG        ?= $(LOKI_IMG_BASE):$(VERSION)
 LOKI_FULL_IMG   ?= $(REGISTRY)/$(LOKI_IMG_BASE)
 
-KIND_K8S_VERSION ?= "v1.37.0"
+KIND_K8S_VERSION ?= "v2.6.0"
 KIND_K8S_NAME    ?= "observability-addon"
 
 ## Tool Binaries
