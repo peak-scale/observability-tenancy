@@ -12,7 +12,7 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/snappy v1.0.0
 	github.com/google/uuid v1.6.0
-	github.com/grafana/loki/pkg/push v0.0.0-20260930221808-8cc9031f5f8d
+	github.com/grafana/loki/pkg/push v0.0.0-20261003062800-f9bdd9378ce3
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/onsi/ginkgo/v2 v2.33.0
 	github.com/onsi/gomega v1.44.0

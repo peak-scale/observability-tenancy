@@ -176,6 +176,8 @@ github.com/googleapis/gax-go/v2 v2.24.0 h1:myMaPYyF9MecEmvQqMqomIwn9t/4KCZN9qnws
 github.com/googleapis/gax-go/v2 v2.24.0/go.mod h1:IaTHBDd7NHxSCiu0vEs8pQZu4dGZrWwuSoxCnk16OFM=
 github.com/grafana/loki/pkg/push v0.0.0-20260930221808-8cc9031f5f8d h1:+8PZIVwWn+fM380LV6/8k7uRTV9ySfwaVo2VgaLXHKs=
 github.com/grafana/loki/pkg/push v0.0.0-20260930221808-8cc9031f5f8d/go.mod h1:znjf8qZwDFzKNWr6XqnrheD/rZ9ZmMa6QrVLkLm0b80=
+github.com/grafana/loki/pkg/push v0.0.0-20261003062800-f9bdd9378ce3 h1:c9qt0xGQtZC3A9X2mv4w8zyRs0oDWBzcT9Ca+O/QMMo=
+github.com/grafana/loki/pkg/push v0.0.0-20261003062800-f9bdd9378ce3/go.mod h1:znjf8qZwDFzKNWr6XqnrheD/rZ9ZmMa6QrVLkLm0b80=
 github.com/grafana/regexp v0.0.0-20250905093917-f7b3be9d1853 h1:cLN4IBkmkYZNnk7EAJ0BHIethd+J6LqxFNw5mSiI2bM=
 github.com/grafana/regexp v0.0.0-20250905093917-f7b3be9d1853/go.mod h1:+JKpmjMGhpgPL+rXZ5nsZieVzvarn86asRlBg4uNGnk=
 github.com/hashicorp/errwrap v1.0.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
