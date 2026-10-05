@@ -21,7 +21,7 @@ require (
 	github.com/prometheus/client_golang v1.24.1
 	github.com/prometheus/prometheus v0.315.0
 	github.com/stretchr/testify v1.12.1
-	github.com/valyala/fasthttp v1.74.0
+	github.com/valyala/fasthttp v1.75.0
 	go.uber.org/automaxprocs v1.6.0
 	go.yaml.in/yaml/v2 v2.4.4
 	k8s.io/api v0.37.1
