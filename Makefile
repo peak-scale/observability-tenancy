@@ -272,7 +272,7 @@ ginkgo:
 	@$(call go-install-tool,$(GINKGO),github.com/$(GINKGO_LOOKUP)/v2/ginkgo@$(GINKGO_VERSION))
 
 CT         := $(LOCALBIN)/ct
-CT_VERSION := v3.14.0
+CT_VERSION := v3.15.0
 CT_LOOKUP  := helm/chart-testing
 ct:
 	@$(call go-install-tool,$(CT),github.com/$(CT_LOOKUP)/v3/ct@$(CT_VERSION))
