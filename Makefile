@@ -266,7 +266,7 @@ helm-doc:
 # -- Tools
 ####################
 GINKGO := $(LOCALBIN)/ginkgo
-GINKGO_VERSION := v2.33.0
+GINKGO_VERSION := v2.33.1
 GINKGO_LOOKUP := onsi/ginkgo
 ginkgo:
 	@$(call go-install-tool,$(GINKGO),github.com/$(GINKGO_LOOKUP)/v2/ginkgo@$(GINKGO_VERSION))
